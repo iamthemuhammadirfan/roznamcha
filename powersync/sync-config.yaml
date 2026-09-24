@@ -1,0 +1,22 @@
+# Paste into the PowerSync dashboard → Sync Streams, then Validate and Deploy.
+# Each signed-in user gets every row of every business they are a member of, synced in
+# full on connect (auto_subscribe) — the phone must hold the whole ledger to work offline.
+config:
+  edition: 3
+with:
+  my_businesses: SELECT business_id FROM membership WHERE user_id = auth.user_id()
+streams:
+  business_data:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM business WHERE id IN my_businesses
+      - SELECT * FROM membership WHERE business_id IN my_businesses
+      - SELECT * FROM project WHERE business_id IN my_businesses
+      - SELECT * FROM worker WHERE business_id IN my_businesses
+      - SELECT * FROM assignment WHERE business_id IN my_businesses
+      - SELECT * FROM attendance WHERE business_id IN my_businesses
+      - SELECT * FROM ledger_entry WHERE business_id IN my_businesses
+      - SELECT * FROM settlement WHERE business_id IN my_businesses
+  app_config:
+    auto_subscribe: true
+    query: SELECT * FROM app_config
