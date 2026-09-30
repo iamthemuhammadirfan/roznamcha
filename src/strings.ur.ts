@@ -173,6 +173,8 @@ export const ur = {
     sync: 'سنک',
     updateReady: 'نیا ورژن تیار ہے',
     restart: 'ری اسٹارٹ کریں',
+    language: 'زبان',
+    languageHelp: 'زبان بدلنے پر ایپ دوبارہ کھلے گی۔ مزدور کو پرچی ہمیشہ اردو میں جائے گی۔',
   },
   update: {
     required: 'نیا ورژن ضروری ہے',
@@ -199,21 +201,3 @@ export const ur = {
     optional: 'اختیاری',
   },
 } as const;
-
-export const entryKindLabel: Record<string, string> = {
-  advance: ur.entry.advance,
-  payment: ur.entry.payment,
-  deduction: ur.entry.deduction,
-  bonus: ur.entry.bonus,
-  correction: ur.entry.correction,
-};
-
-export const tradeOptions = [
-  ur.trade.mason,
-  ur.trade.labourer,
-  ur.trade.carpenter,
-  ur.trade.steelFixer,
-  ur.trade.electrician,
-  ur.trade.plumber,
-  ur.trade.painter,
-];

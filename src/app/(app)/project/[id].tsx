@@ -8,7 +8,7 @@ import {
   useProjectEntries,
 } from '@/db/hooks';
 import { useSession } from '@/state/session';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Banner, Button, Card, Empty, Row, Screen } from '@/ui/controls';
 import { Num, T } from '@/ui/text';
@@ -26,14 +26,14 @@ export default function ProjectDashboard() {
   const assignments = useProjectAssignments(id);
   const balances = balancesByAssignment(useProjectAttendance(id), useProjectEntries(id));
 
-  if (!project) return <Empty text={ur.project.empty} />;
+  if (!project) return <Empty text={t.project.empty} />;
 
   const outstanding = assignments.reduce((s, a) => s + (balances.get(a.id)?.balance ?? 0), 0);
   const active = assignments.filter((a) => a.is_active).length;
 
   return (
     <Screen>
-      {localMode ? <Banner text={ur.app.localMode} /> : null}
+      {localMode ? <Banner text={t.app.localMode} /> : null}
 
       <Card>
         <Row>
@@ -43,16 +43,16 @@ export default function ProjectDashboard() {
           <T variant="h1">{project.name_ur}</T>
         </Row>
         {project.address ? <T variant="small">{project.address}</T> : null}
-        <T variant="small">{ur.balance.total}</T>
+        <T variant="small">{t.balance.total}</T>
         <BalanceChip paisa={outstanding} size={22} />
       </Card>
 
-      <Button label={ur.dashboard.giveEntry} onPress={() => router.push('/entry')} style={{ minHeight: 80 }} />
-      <Button label={`${ur.dashboard.markAttendance} — ${ur.dashboard.comingSoon}`} kind="secondary" disabled />
+      <Button label={t.dashboard.giveEntry} onPress={() => router.push('/entry')} style={{ minHeight: 80 }} />
+      <Button label={`${t.dashboard.markAttendance} — ${t.dashboard.comingSoon}`} kind="secondary" disabled />
 
       <Card onPress={() => router.push('/project-workers')}>
         <Row style={{ justifyContent: 'space-between' }}>
-          <T variant="h2">{ur.dashboard.workersOnProject}</T>
+          <T variant="h2">{t.dashboard.workersOnProject}</T>
           <Num bold style={{ fontSize: 22 }}>
             {active}
           </Num>

@@ -43,7 +43,7 @@
       [
         "expo-localization",
         {
-          "forcesRTL": true
+          "supportsRTL": true
         }
       ],
       "expo-sharing",

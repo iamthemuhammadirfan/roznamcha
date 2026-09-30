@@ -1,6 +1,6 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
-import { ur } from '@/strings.ur';
+import { isUrdu, t } from '@/i18n';
 import { colors, fonts } from '@/ui/theme';
 
 /**
@@ -13,20 +13,20 @@ export default function TabsLayout() {
       backgroundColor={colors.card}
       iconColor={{ default: colors.muted, selected: colors.brand }}
       labelStyle={{
-        default: { fontFamily: fonts.naskh, fontSize: 13, color: colors.muted },
-        selected: { fontFamily: fonts.naskhBold, fontSize: 13, color: colors.brand },
+        default: { fontFamily: isUrdu ? fonts.urdu : fonts.latin, fontSize: 13, color: colors.muted },
+        selected: { fontFamily: isUrdu ? fonts.urdu : fonts.latin, fontWeight: isUrdu ? undefined : '700', fontSize: 13, color: colors.brand },
       }}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Icon sf="house.fill" md="home" />
-        <NativeTabs.Trigger.Label>{ur.nav.home}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.nav.home}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="directory">
         <NativeTabs.Trigger.Icon sf="person.crop.rectangle.stack.fill" md="contacts" />
-        <NativeTabs.Trigger.Label>{ur.nav.directory}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.nav.directory}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Icon sf="gearshape.fill" md="settings" />
-        <NativeTabs.Trigger.Label>{ur.nav.settings}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>{t.nav.settings}</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );

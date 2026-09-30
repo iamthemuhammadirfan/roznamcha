@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { useProject } from '@/db/hooks';
 import { useActiveProject } from '@/state/active-project';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 
 import { Num, T } from './text';
 import { colors, space } from './theme';
@@ -32,15 +32,15 @@ export function HeaderTitle({ title, scoped = true }: { title: string; scoped?: 
 }
 
 const TAB_TITLES: Record<string, { title: string; scoped: boolean }> = {
-  '/': { title: ur.nav.projects, scoped: false },
-  '/directory': { title: ur.nav.directory, scoped: false },
-  '/settings': { title: ur.nav.settings, scoped: false },
+  '/': { title: t.nav.projects, scoped: false },
+  '/directory': { title: t.nav.directory, scoped: false },
+  '/settings': { title: t.nav.settings, scoped: false },
 };
 
 /** One header above the tab bar; its title follows the selected tab. */
 export function TabsHeaderTitle() {
-  const t = TAB_TITLES[usePathname()] ?? TAB_TITLES['/'];
-  return <HeaderTitle title={t.title} scoped={t.scoped} />;
+  const tab = TAB_TITLES[usePathname()] ?? TAB_TITLES['/'];
+  return <HeaderTitle title={tab.title} scoped={tab.scoped} />;
 }
 
 const styles = StyleSheet.create({

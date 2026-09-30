@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { isUrdu } from '@/i18n';
+
 import { Num, T } from './text';
 import { colors, fonts, space, TOUCH_MIN } from './theme';
 
@@ -176,7 +178,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.card,
     paddingHorizontal: space.md,
-    fontFamily: fonts.naskh,
+    fontFamily: isUrdu ? fonts.urdu : fonts.latin,
     fontSize: 18,
     color: colors.text,
   },

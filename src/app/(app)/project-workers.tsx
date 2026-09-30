@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { balancesByAssignment, useProjectAssignments, useProjectAttendance, useProjectEntries } from '@/db/hooks';
 import { useActiveProject } from '@/state/active-project';
-import { ur } from '@/strings.ur';
+import { t, tradeLabel } from '@/i18n';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Button, Card, Empty, Phone, Row, Screen } from '@/ui/controls';
 import { Money, T } from '@/ui/text';
@@ -21,8 +21,8 @@ export default function WorkersOnProject() {
   return (
     <Screen>
       {/* Always search the directory first so an existing person is reused, not duplicated. */}
-      <Button label={ur.action.addWorker} onPress={() => router.push('/add-worker')} />
-      {active.length === 0 ? <Empty text={ur.worker.notFound} /> : null}
+      <Button label={t.action.addWorker} onPress={() => router.push('/add-worker')} />
+      {active.length === 0 ? <Empty text={t.worker.notFound} /> : null}
       {[...active, ...ended].map((a) => (
         <Card
           key={a.id}
@@ -36,20 +36,20 @@ export default function WorkersOnProject() {
               <Row>
                 {a.worker_father_name ? (
                   <T variant="small">
-                    {ur.worker.son} {a.worker_father_name}
+                    {t.worker.son} {a.worker_father_name}
                   </T>
                 ) : null}
-                {a.worker_trade ? <T variant="small">· {a.worker_trade}</T> : null}
+                {a.worker_trade ? <T variant="small">· {tradeLabel(a.worker_trade)}</T> : null}
               </Row>
               <Phone value={a.worker_phone} />
             </View>
             <View style={{ alignItems: 'flex-end', gap: 4 }}>
               <BalanceChip paisa={balances.get(a.id)?.balance ?? 0} />
               <Row>
-                <T variant="small">{ur.worker.rate}</T>
+                <T variant="small">{t.worker.rate}</T>
                 <Money paisa={a.daily_rate_paisa} size={14} color={colors.muted} />
               </Row>
-              {!a.is_active ? <T variant="small">{ur.assignment.ended}</T> : null}
+              {!a.is_active ? <T variant="small">{t.assignment.ended}</T> : null}
             </View>
           </Row>
         </Card>

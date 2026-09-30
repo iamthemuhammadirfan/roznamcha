@@ -5,6 +5,11 @@ const MONTHS_UR = [
   'جولائی', 'اگست', 'ستمبر', 'اکتوبر', 'نومبر', 'دسمبر',
 ];
 const WEEKDAYS_UR = ['اتوار', 'پیر', 'منگل', 'بدھ', 'جمعرات', 'جمعہ', 'ہفتہ'];
+const MONTHS_EN = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+const WEEKDAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export type Day = string;
 
@@ -43,4 +48,15 @@ export function formatDayUr(day: Day): string {
 
 export function weekdayUr(day: Day): string {
   return WEEKDAYS_UR[parse(day).getDay()];
+}
+
+/** "14 September 2026" / "14 ستمبر 2026" — Latin digits either way. */
+export function formatDay(day: Day, lang: 'ur' | 'en'): string {
+  if (lang === 'ur') return formatDayUr(day);
+  const d = parse(day);
+  return `${d.getDate()} ${MONTHS_EN[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+export function weekday(day: Day, lang: 'ur' | 'en'): string {
+  return lang === 'ur' ? weekdayUr(day) : WEEKDAYS_EN[parse(day).getDay()];
 }

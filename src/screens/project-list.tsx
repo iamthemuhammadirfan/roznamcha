@@ -5,7 +5,7 @@ import { Pressable, View } from 'react-native';
 import { balancesByAssignment, useAllAssignments, useAllAttendance, useAllEntries, useProjectsLoaded } from '@/db/hooks';
 import { useActiveProject } from '@/state/active-project';
 import { useSession } from '@/state/session';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Banner, Button, Card, Empty, Row, Screen } from '@/ui/controls';
 import { Num, T } from '@/ui/text';
@@ -42,10 +42,10 @@ export function ProjectList() {
 
   return (
     <Screen>
-      {localMode ? <Banner text={ur.app.localMode} /> : null}
+      {localMode ? <Banner text={t.app.localMode} /> : null}
       <UpdateBanner />
       <NotSaved />
-      {!loading && visible.length === 0 ? <Empty text={ur.project.empty} /> : null}
+      {!loading && visible.length === 0 ? <Empty text={t.project.empty} /> : null}
       {visible.map((p) => {
         const s = summary(p.id);
         return (
@@ -62,15 +62,15 @@ export function ProjectList() {
               </Row>
               <Pressable hitSlop={16} onPress={() => router.push({ pathname: '/project-form', params: { id: p.id } })}>
                 <T variant="small" style={{ color: colors.brand }}>
-                  {ur.action.edit}
+                  {t.action.edit}
                 </T>
               </Pressable>
             </Row>
-            {!p.is_active ? <T variant="small">{ur.project.archived}</T> : null}
+            {!p.is_active ? <T variant="small">{t.project.archived}</T> : null}
             <Row style={{ justifyContent: 'space-between' }}>
               <Row>
                 <Num>{s.workers}</Num>
-                <T variant="small">{ur.project.workerCount}</T>
+                <T variant="small">{t.project.workerCount}</T>
               </Row>
               <BalanceChip paisa={s.outstanding} />
             </Row>
@@ -80,12 +80,12 @@ export function ProjectList() {
       {archivedCount > 0 ? (
         <Pressable onPress={() => setShowArchived(!showArchived)} style={{ padding: 12 }}>
           <T variant="small" style={{ color: colors.brand, textAlign: 'center' }}>
-            {showArchived ? ur.project.hideArchived : ur.project.showArchived}
+            {showArchived ? t.project.hideArchived : t.project.showArchived}
           </T>
         </Pressable>
       ) : null}
       <View style={{ flex: 1 }} />
-      <Button label={ur.project.new} kind="secondary" onPress={() => router.push('/project-form')} />
+      <Button label={t.project.new} kind="secondary" onPress={() => router.push('/project-form')} />
     </Screen>
   );
 }

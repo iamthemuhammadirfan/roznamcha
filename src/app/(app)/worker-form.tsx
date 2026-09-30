@@ -7,7 +7,7 @@ import { createWorker, updateWorker } from '@/db/mutations';
 import type { Worker } from '@/db/schema';
 import { normalizePhone } from '@/lib/money';
 import { useMember, useWriteContext } from '@/state/session';
-import { tradeOptions, ur } from '@/strings.ur';
+import { t, tradeLabel, tradeOptions } from '@/i18n';
 import { Banner, Button, Choice, Field, Screen } from '@/ui/controls';
 import { T } from '@/ui/text';
 
@@ -19,10 +19,10 @@ function findDuplicate(workers: Worker[], name: string, father: string, phone: s
   const p = phone ? normalizePhone(phone) : '';
   if (p.length >= 10) {
     const byPhone = others.find((w) => w.phone && normalizePhone(w.phone) === p);
-    if (byPhone) return { worker: byPhone, reason: ur.worker.duplicatePhone };
+    if (byPhone) return { worker: byPhone, reason: t.worker.duplicatePhone };
   }
   const byName = others.find((w) => norm(w.name_ur) === norm(name) && norm(w.father_name) === norm(father));
-  if (byName) return { worker: byName, reason: ur.worker.duplicateName };
+  if (byName) return { worker: byName, reason: t.worker.duplicateName };
   return null;
 }
 
@@ -46,7 +46,7 @@ function WorkerForm({ params, existing }: { params: Params; existing: Worker | n
   const [father, setFather] = useState(existing?.father_name ?? '');
   const [phone, setPhone] = useState(existing?.phone ?? (prefillIsPhone ? prefill : ''));
   const [cnic, setCnic] = useState(existing?.cnic_last4 ?? '');
-  const [trade, setTrade] = useState<string>(existing?.trade ?? ur.trade.labourer);
+  const [trade, setTrade] = useState<string>(existing?.trade ?? tradeOptions[1]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -69,42 +69,42 @@ function WorkerForm({ params, existing }: { params: Params; existing: Worker | n
   }
 
   function save() {
-    if (!name.trim()) return setError(ur.worker.nameRequired);
-    if (cnic && !/^\d{4}$/.test(cnic)) return setError(ur.worker.cnicLast4);
+    if (!name.trim()) return setError(t.worker.nameRequired);
+    if (cnic && !/^\d{4}$/.test(cnic)) return setError(t.worker.cnicLast4);
     const dup = findDuplicate(workers, name, father, phone, params.id);
     if (!dup) return commit();
 
-    const who = `${dup.worker.name_ur}${dup.worker.father_name ? ` ${ur.worker.son} ${dup.worker.father_name}` : ''}\n${dup.worker.phone ?? ''}`;
-    Alert.alert(ur.worker.duplicateQuestion, `${dup.reason}\n${who}`, [
+    const who = `${dup.worker.name_ur}${dup.worker.father_name ? ` ${t.worker.son} ${dup.worker.father_name}` : ''}\n${dup.worker.phone ?? ''}`;
+    Alert.alert(t.worker.duplicateQuestion, `${dup.reason}\n${who}`, [
       ...(params.id
         ? []
-        : [{ text: ur.worker.useExisting, onPress: () => afterCreate(dup.worker.id) }]),
-      { text: ur.worker.createAnyway, style: 'destructive' as const, onPress: commit },
-      { text: ur.action.cancel, style: 'cancel' as const },
+        : [{ text: t.worker.useExisting, onPress: () => afterCreate(dup.worker.id) }]),
+      { text: t.worker.createAnyway, style: 'destructive' as const, onPress: commit },
+      { text: t.action.cancel, style: 'cancel' as const },
     ]);
   }
 
   return (
     <Screen>
       {error ? <Banner tone="recover" text={error} /> : null}
-      <Field label={ur.worker.name} value={name} onChangeText={setName} editable={!readOnly} />
-      <Field label={ur.worker.fatherName} value={father} onChangeText={setFather} editable={!readOnly} />
-      <Field label={ur.worker.phone} value={phone} onChangeText={setPhone} numeric keyboardType="phone-pad" editable={!readOnly} />
+      <Field label={t.worker.name} value={name} onChangeText={setName} editable={!readOnly} />
+      <Field label={t.worker.fatherName} value={father} onChangeText={setFather} editable={!readOnly} />
+      <Field label={t.worker.phone} value={phone} onChangeText={setPhone} numeric keyboardType="phone-pad" editable={!readOnly} />
       <Field
-        label={ur.worker.cnicLast4}
+        label={t.worker.cnicLast4}
         value={cnic}
         onChangeText={(v) => setCnic(v.replace(/\D/g, '').slice(0, 4))}
         numeric
         maxLength={4}
         editable={!readOnly}
       />
-      <T variant="bodyBold">{ur.worker.trade}</T>
+      <T variant="bodyBold">{t.worker.trade}</T>
       <Choice
-        options={tradeOptions.map((t) => ({ value: t, label: t }))}
+        options={tradeOptions.map((v) => ({ value: v, label: tradeLabel(v) }))}
         value={trade}
         onChange={(v) => !readOnly && setTrade(v)}
       />
-      {!readOnly ? <Button label={ur.action.save} onPress={save} busy={busy} /> : null}
+      {!readOnly ? <Button label={t.action.save} onPress={save} busy={busy} /> : null}
     </Screen>
   );
 }

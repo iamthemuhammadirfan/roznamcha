@@ -13,11 +13,11 @@ import {
 import { changeRate, endAssignment, reverseEntry } from '@/db/mutations';
 import type { LedgerEntry } from '@/db/schema';
 import { entryEffects, reversedIds } from '@/lib/balance';
-import { formatDayUr } from '@/lib/dates';
+import { formatDay } from '@/lib/dates';
 import { parseRupees } from '@/lib/money';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
-import { entryKindLabel, ur } from '@/strings.ur';
+import { entryKindLabel, lang, t, tradeLabel } from '@/i18n';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Button, Card, Empty, Field, Phone, Row, Screen } from '@/ui/controls';
 import { Money, Num, T } from '@/ui/text';
@@ -45,22 +45,22 @@ function EntryRow({
       <View style={{ flexShrink: 1 }}>
         <Row>
           <T variant="bodyBold" style={[reversed && styles.struck, isCorrection && { color: colors.pending }]}>
-            {entryKindLabel[entry.kind] ?? entry.kind}
+            {entryKindLabel(entry.kind)}
           </T>
-          <T variant="small">{formatDayUr(entry.date)}</T>
+          <T variant="small">{formatDay(entry.date, lang)}</T>
         </Row>
         <Row>
           <Num style={{ fontSize: 13, color: colors.muted }}>{entry.ref_code}</Num>
           {isCorrection && entry.note_ur ? (
             <T variant="small">
-              {ur.entry.reverses} <Num style={{ fontSize: 13 }}>{entry.note_ur}</Num>
+              {t.entry.reverses} <Num style={{ fontSize: 13 }}>{entry.note_ur}</Num>
             </T>
           ) : entry.note_ur ? (
             <T variant="small">{entry.note_ur}</T>
           ) : null}
         </Row>
         <T variant="small" style={{ color: entry.receipt_sent_at ? colors.owed : colors.pending }}>
-          {reversed ? ur.entry.reversed : entry.receipt_sent_at ? ur.entry.receiptSent : ur.entry.receiptPending}
+          {reversed ? t.entry.reversed : entry.receipt_sent_at ? t.entry.receiptSent : t.entry.receiptPending}
         </T>
       </View>
       <Money paisa={entry.amount_paisa} color={effect >= 0 ? colors.owed : colors.recover} />
@@ -88,15 +88,15 @@ function ProjectBlock({
 
   async function saveRate() {
     const paisa = rateDraft ? parseRupees(rateDraft) : null;
-    if (!paisa) return Alert.alert(ur.assignment.rateRequired);
+    if (!paisa) return Alert.alert(t.assignment.rateRequired);
     await changeRate(a.id, paisa);
     setRateDraft(null);
   }
 
   function confirmReverse(e: LedgerEntry) {
-    Alert.alert(ur.entry.reverse, `${ur.entry.reverseConfirm}\n\n${e.ref_code}`, [
-      { text: ur.action.cancel, style: 'cancel' },
-      { text: ur.action.confirm, style: 'destructive', onPress: () => reverseEntry(ctx, e) },
+    Alert.alert(t.entry.reverse, `${t.entry.reverseConfirm}\n\n${e.ref_code}`, [
+      { text: t.action.cancel, style: 'cancel' },
+      { text: t.action.confirm, style: 'destructive', onPress: () => reverseEntry(ctx, e) },
     ]);
   }
 
@@ -108,9 +108,9 @@ function ProjectBlock({
   }
 
   function end() {
-    Alert.alert(ur.assignment.end, ur.assignment.endConfirm, [
-      { text: ur.action.cancel, style: 'cancel' },
-      { text: ur.action.confirm, style: 'destructive', onPress: () => endAssignment(a.id) },
+    Alert.alert(t.assignment.end, t.assignment.endConfirm, [
+      { text: t.action.cancel, style: 'cancel' },
+      { text: t.action.confirm, style: 'destructive', onPress: () => endAssignment(a.id) },
     ]);
   }
 
@@ -123,23 +123,23 @@ function ProjectBlock({
           </Num>
           <T variant="h2">{a.project_name}</T>
         </Row>
-        {!a.is_active ? <T variant="small">{ur.assignment.ended}</T> : null}
+        {!a.is_active ? <T variant="small">{t.assignment.ended}</T> : null}
       </Row>
       <Row style={{ justifyContent: 'space-between' }}>
         <Row>
-          <T variant="small">{ur.worker.rate}</T>
+          <T variant="small">{t.worker.rate}</T>
           <Money paisa={a.daily_rate_paisa} size={15} color={colors.muted} />
         </Row>
         {earned > 0 ? (
           <Row>
-            <T variant="small">{ur.ledger.earned}</T>
+            <T variant="small">{t.ledger.earned}</T>
             <Money paisa={earned} size={15} color={colors.muted} />
           </Row>
         ) : null}
       </Row>
       <BalanceChip paisa={balance} size={20} />
 
-      {entries.length === 0 ? <T variant="small">{ur.ledger.empty}</T> : null}
+      {entries.length === 0 ? <T variant="small">{t.ledger.empty}</T> : null}
       {entries.map((e) => (
         <EntryRow
           key={e.id}
@@ -151,25 +151,25 @@ function ProjectBlock({
         />
       ))}
 
-      {a.is_active ? <Button label={ur.dashboard.giveEntry} onPress={newEntry} /> : null}
+      {a.is_active ? <Button label={t.dashboard.giveEntry} onPress={newEntry} /> : null}
       {a.is_active && role === 'owner' && rateDraft === null ? (
-        <Button label={ur.assignment.changeRate} kind="secondary" onPress={() => setRateDraft('')} />
+        <Button label={t.assignment.changeRate} kind="secondary" onPress={() => setRateDraft('')} />
       ) : null}
       {rateDraft !== null ? (
         <>
           <Field
-            label={ur.assignment.rate}
-            hint={ur.assignment.changeRateHelp}
+            label={t.assignment.rate}
+            hint={t.assignment.changeRateHelp}
             value={rateDraft}
             onChangeText={setRateDraft}
             numeric
             autoFocus
           />
-          <Button label={ur.action.save} onPress={saveRate} />
-          <Button label={ur.action.cancel} kind="secondary" onPress={() => setRateDraft(null)} />
+          <Button label={t.action.save} onPress={saveRate} />
+          <Button label={t.action.cancel} kind="secondary" onPress={() => setRateDraft(null)} />
         </>
       ) : null}
-      {a.is_active && role === 'owner' ? <Button label={ur.assignment.end} kind="secondary" onPress={end} /> : null}
+      {a.is_active && role === 'owner' ? <Button label={t.assignment.end} kind="secondary" onPress={end} /> : null}
     </Card>
   );
 }
@@ -181,7 +181,7 @@ export default function WorkerDetail() {
   const entries = useWorkerEntries(id);
   const balances = balancesByAssignment(useWorkerAttendance(id), entries);
 
-  if (!worker) return <Empty text={ur.worker.notFound} />;
+  if (!worker) return <Empty text={t.worker.notFound} />;
 
   const grand = assignments.reduce((s, a) => s + (balances.get(a.id)?.balance ?? 0), 0);
 
@@ -193,21 +193,21 @@ export default function WorkerDetail() {
             <T variant="h1">{worker.name_ur}</T>
             {worker.father_name ? (
               <T variant="small">
-                {ur.worker.son} {worker.father_name}
+                {t.worker.son} {worker.father_name}
               </T>
             ) : null}
             <Phone value={worker.phone} />
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            {worker.trade ? <T variant="small">{worker.trade}</T> : null}
+            {worker.trade ? <T variant="small">{tradeLabel(worker.trade)}</T> : null}
             <T variant="small" style={{ color: colors.brand }}>
-              {ur.action.edit}
+              {t.action.edit}
             </T>
           </View>
         </Row>
       </Card>
 
-      {assignments.length === 0 ? <Empty text={ur.worker.noProjects} /> : null}
+      {assignments.length === 0 ? <Empty text={t.worker.noProjects} /> : null}
       {/* Each project is its own ledger. Money on 489 never nets against wages on 544. */}
       {assignments.map((a) => (
         <ProjectBlock
@@ -221,9 +221,9 @@ export default function WorkerDetail() {
 
       {assignments.length > 1 ? (
         <Card style={{ backgroundColor: colors.brandSoft }}>
-          <T variant="h2">{ur.ledger.grandTotal}</T>
+          <T variant="h2">{t.ledger.grandTotal}</T>
           <BalanceChip paisa={grand} size={22} />
-          <T variant="small">{ur.ledger.grandTotalHelp}</T>
+          <T variant="small">{t.ledger.grandTotalHelp}</T>
         </Card>
       ) : null}
     </Screen>

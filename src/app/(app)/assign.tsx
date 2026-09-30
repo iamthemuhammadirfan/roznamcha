@@ -6,7 +6,7 @@ import { activeAssignment, assignWorker } from '@/db/mutations';
 import { parseRupees } from '@/lib/money';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 import { Banner, Button, Card, Field, Row, Screen } from '@/ui/controls';
 import { Num, T } from '@/ui/text';
 import { colors } from '@/ui/theme';
@@ -25,9 +25,9 @@ export default function Assign() {
 
   async function save() {
     const paisa = parseRupees(rate);
-    if (!paisa) return setError(ur.assignment.rateRequired);
+    if (!paisa) return setError(t.assignment.rateRequired);
     if (!projectId) return;
-    if (await activeAssignment(workerId, projectId)) return setError(ur.assignment.alreadyOn);
+    if (await activeAssignment(workerId, projectId)) return setError(t.assignment.alreadyOn);
     setBusy(true);
     await assignWorker(ctx, workerId, projectId, paisa);
     router.dismissTo('/project-workers');
@@ -39,7 +39,7 @@ export default function Assign() {
         <T variant="h1">{worker?.name_ur}</T>
         {worker?.father_name ? (
           <T variant="small">
-            {ur.worker.son} {worker.father_name}
+            {t.worker.son} {worker.father_name}
           </T>
         ) : null}
         <Row>
@@ -51,12 +51,12 @@ export default function Assign() {
       </Card>
       {role !== 'owner' ? (
         // RLS would reject this upload anyway; say so now rather than after sync.
-        <Banner tone="recover" text={ur.assignment.ownerOnly} />
+        <Banner tone="recover" text={t.assignment.ownerOnly} />
       ) : (
         <>
           {error ? <Banner tone="recover" text={error} /> : null}
-          <Field label={ur.assignment.rate} value={rate} onChangeText={setRate} numeric autoFocus />
-          <Button label={ur.assignment.save} onPress={save} busy={busy} />
+          <Field label={t.assignment.rate} value={rate} onChangeText={setRate} numeric autoFocus />
+          <Button label={t.assignment.save} onPress={save} busy={busy} />
         </>
       )}
     </Screen>

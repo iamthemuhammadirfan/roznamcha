@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useSession } from '@/state/session';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 import { Banner, Button, Field, Screen } from '@/ui/controls';
 import { T } from '@/ui/text';
 import { space } from '@/ui/theme';
@@ -26,14 +26,14 @@ export default function SignIn() {
     <Screen>
       <View style={styles.hero}>
         <T variant="title" style={styles.title}>
-          {ur.app.name}
+          {t.app.name}
         </T>
-        <T variant="small">{ur.app.tagline}</T>
+        <T variant="small">{t.app.tagline}</T>
       </View>
-      {state.status === 'noMembership' ? <Banner tone="recover" text={ur.auth.noMembership} /> : null}
-      {failed ? <Banner tone="recover" text={ur.auth.failed} /> : null}
+      {state.status === 'noMembership' ? <Banner tone="recover" text={t.auth.noMembership} /> : null}
+      {failed ? <Banner tone="recover" text={t.auth.failed} /> : null}
       <Field
-        label={ur.auth.email}
+        label={t.auth.email}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
@@ -42,13 +42,13 @@ export default function SignIn() {
         style={styles.ltr}
       />
       <Field
-        label={ur.auth.password}
+        label={t.auth.password}
         value={password}
         onChangeText={setPassword}
         secureTextEntry
         style={styles.ltr}
       />
-      <Button label={ur.auth.signIn} onPress={submit} busy={busy} disabled={!email || !password} />
+      <Button label={t.auth.signIn} onPress={submit} busy={busy} disabled={!email || !password} />
     </Screen>
   );
 }
