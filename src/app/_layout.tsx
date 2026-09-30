@@ -13,13 +13,14 @@ import { powersync } from '@/db';
 import { ensureDirection } from '@/i18n';
 import { ActiveProjectProvider } from '@/state/active-project';
 import { SessionProvider, useSession } from '@/state/session';
+import { AnimatedSplash } from '@/ui/animated-splash';
 
 SplashScreen.preventAutoHideAsync();
 
 // Expo Router resolves the launch URL asynchronously and then updates navigation
 // state, so the navigator must be mounted on the very first render — never return
-// null or a placeholder here. The native splash covers the screen until fonts and the
-// session are ready.
+// null or a placeholder here. The native splash, then the Lottie splash, cover the
+// screen until fonts and the session are ready.
 function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { state } = useSession();
   // Urdu ⇄ English also flips the layout direction, which only applies on restart. On
@@ -37,22 +38,20 @@ function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {
   const ready = booted && state.status === 'ready';
   const signedOut = state.status === 'signedOut' || state.status === 'noMembership';
 
-  // Hide the splash from the screen that ends up shown, not when the guard flips: the
-  // redirect off sign-in lands a frame after this render, so hiding here would flash
-  // sign-in. (app)/_layout hides it once it has mounted.
-  useEffect(() => {
-    if (booted && signedOut) SplashScreen.hideAsync();
-  }, [booted, signedOut]);
-
+  // The Lottie splash lifts once the screen that ends up shown has mounted: sign-in
+  // right here when signed out, otherwise (app)/_layout reports in. Hiding it when the
+  // guard flips instead would flash sign-in, because the redirect lands a frame later.
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
-      <Stack.Protected guard={ready}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!ready}>
-        <Stack.Screen name="sign-in" />
-      </Stack.Protected>
-    </Stack>
+    <AnimatedSplash canStart={directionOk} ready={booted && signedOut}>
+      <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
+        <Stack.Protected guard={ready}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!ready}>
+          <Stack.Screen name="sign-in" />
+        </Stack.Protected>
+      </Stack>
+    </AnimatedSplash>
   );
 }
 

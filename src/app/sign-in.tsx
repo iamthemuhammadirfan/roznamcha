@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useSession } from '@/state/session';
 import { t } from '@/i18n';
 import { Banner, Button, Field, Screen } from '@/ui/controls';
 import { T } from '@/ui/text';
-import { colors, space } from '@/ui/theme';
+import { space } from '@/ui/theme';
 
 export default function SignIn() {
   const { state, signIn } = useSession();
@@ -20,17 +20,6 @@ export default function SignIn() {
     const ok = await signIn(email, password);
     setBusy(false);
     if (!ok) setFailed(true);
-  }
-
-  // The router parks here while the session is still being restored, and a JS reload
-  // doesn't bring the native splash back. Until we know the user really is signed out,
-  // look exactly like the splash so the form never flashes before the app.
-  if (state.status !== 'signedOut' && state.status !== 'noMembership') {
-    return (
-      <View style={styles.splash}>
-        <Image source={require('@/assets/images/splash-icon.png')} style={styles.splashIcon} />
-      </View>
-    );
   }
 
   return (
@@ -65,9 +54,6 @@ export default function SignIn() {
 }
 
 const styles = StyleSheet.create({
-  // Matches the expo-splash-screen config in app.json.
-  splash: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.brand },
-  splashIcon: { width: 76, height: 76 },
   hero: { alignItems: 'center', paddingVertical: space.xl },
   title: { fontSize: 40, lineHeight: 96 },
   ltr: { writingDirection: 'ltr' },
