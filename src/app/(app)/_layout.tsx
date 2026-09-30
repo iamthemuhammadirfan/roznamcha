@@ -1,12 +1,12 @@
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { useAppConfig } from '@/db/hooks';
 import { isUrdu, t } from '@/i18n';
 import { Button } from '@/ui/controls';
+import { useContentReady } from '@/ui/animated-splash';
 import { HeaderTitle, TabsHeaderTitle } from '@/ui/header';
 import { SyncBadge } from '@/ui/sync-badge';
 import { T } from '@/ui/text';
@@ -37,11 +37,12 @@ function title(t: string, scoped = true) {
 
 export default function AppLayout() {
   const required = useUpdateRequired();
-  // The root gate only lets this layout mount once boot is done; hiding the splash
-  // here (rather than there) means the first frame the user sees is the app, not sign-in.
+  // The root gate only lets this layout mount once boot is done; lifting the splash
+  // from here (rather than there) means the first frame the user sees is the app, not sign-in.
+  const contentReady = useContentReady();
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    contentReady();
+  }, [contentReady]);
   if (required) {
     return (
       <View style={styles.blocked}>
