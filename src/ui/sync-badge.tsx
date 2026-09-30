@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { usePendingUploadCount } from '@/db/hooks';
 import { useSession } from '@/state/session';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 
 import { Num, T } from './text';
 import { colors, space } from './theme';
@@ -26,7 +26,7 @@ export function SyncBadge() {
           {pending}
         </Num>
         <T variant="small" style={{ color: colors.pending }}>
-          {status.connected ? ur.sync.pending : ur.sync.offline}
+          {status.connected ? t.sync.pending : t.sync.offline}
         </T>
       </View>
     );
@@ -34,14 +34,14 @@ export function SyncBadge() {
   if (!status.connected) {
     return (
       <View style={[styles.badge, { backgroundColor: colors.bg }]}>
-        <T variant="small">{status.connecting ? ur.sync.connecting : ur.sync.offline}</T>
+        <T variant="small">{status.connecting ? t.sync.connecting : t.sync.offline}</T>
       </View>
     );
   }
   return (
     <View style={[styles.badge, { backgroundColor: colors.owedSoft }]}>
       <T variant="bodyBold" style={{ color: colors.owed, fontSize: 15 }}>
-        ✓ {ur.sync.synced}
+        ✓ {t.sync.synced}
       </T>
     </View>
   );

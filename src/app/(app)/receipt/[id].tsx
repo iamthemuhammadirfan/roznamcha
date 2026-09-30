@@ -11,7 +11,8 @@ import { balanceLabel } from '@/ui/balance-chip';
 import { formatDayUr } from '@/lib/dates';
 import { formatRupees, toWhatsAppNumber } from '@/lib/money';
 import { useMember } from '@/state/session';
-import { entryKindLabel, ur } from '@/strings.ur';
+import { entryKindLabel, t } from '@/i18n';
+import { ur } from '@/strings.ur';
 import { Banner, Button, Empty, Screen } from '@/ui/controls';
 import { Parchi, type ParchiData } from '@/ui/parchi';
 import { T } from '@/ui/text';
@@ -26,10 +27,11 @@ async function savePng(tmpUri: string, refCode: string) {
   return dest.uri;
 }
 
+/** The text that goes with the parchi image — Urdu, like the parchi, whatever the app language. */
 function oneLineText(d: ParchiData) {
-  const bal = balanceLabel(d.balancePaisa);
+  const bal = balanceLabel(d.balancePaisa, ur);
   const balText = d.balancePaisa === 0 ? bal.label : `${bal.label} ${formatRupees(d.balancePaisa)} ${ur.common.rupees}`;
-  return `${d.businessName}\n${d.workerName} — ${formatDayUr(d.date)}\n${entryKindLabel[d.kind]}: ${formatRupees(d.amountPaisa)} ${ur.common.rupees}\n${ur.balance.newBalance}: ${balText}\n${ur.receipt.ref}: ${d.refCode}`;
+  return `${d.businessName}\n${d.workerName} — ${formatDayUr(d.date)}\n${entryKindLabel(d.kind, ur)}: ${formatRupees(d.amountPaisa)} ${ur.common.rupees}\n${ur.balance.newBalance}: ${balText}\n${ur.receipt.ref}: ${d.refCode}`;
 }
 
 export default function Receipt() {
@@ -39,7 +41,7 @@ export default function Receipt() {
   const slip = useRef<View>(null);
   const [busy, setBusy] = useState(false);
 
-  if (!entry) return <Empty text={ur.ledger.empty} />;
+  if (!entry) return <Empty text={t.ledger.empty} />;
 
   const data: ParchiData = {
     businessName,
@@ -56,15 +58,15 @@ export default function Receipt() {
   };
 
   async function sendImage() {
-    if (!(await Sharing.isAvailableAsync())) return Alert.alert(ur.receipt.shareUnavailable);
+    if (!(await Sharing.isAvailableAsync())) return Alert.alert(t.receipt.shareUnavailable);
     setBusy(true);
     try {
       const tmp = await captureRef(slip, { format: 'png', quality: 1, result: 'tmpfile' });
       const uri = await savePng(tmp, entry!.ref_code);
-      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: ur.receipt.send });
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t.receipt.send });
       await stampReceiptSent(entry!.id);
     } catch (e) {
-      Alert.alert(ur.common.error, String(e));
+      Alert.alert(t.common.error, String(e));
     } finally {
       setBusy(false);
     }
@@ -72,23 +74,23 @@ export default function Receipt() {
 
   async function sendText() {
     const number = toWhatsAppNumber(entry!.worker_phone);
-    if (!number) return Alert.alert(ur.receipt.noPhone);
+    if (!number) return Alert.alert(t.receipt.noPhone);
     await Linking.openURL(`https://wa.me/${number}?text=${encodeURIComponent(oneLineText(data))}`);
   }
 
   return (
     <Screen>
-      {!entry.receipt_sent_at ? <Banner text={ur.receipt.sendNow} /> : <Banner tone="brand" text={ur.receipt.sent} />}
+      {!entry.receipt_sent_at ? <Banner text={t.receipt.sendNow} /> : <Banner tone="brand" text={t.receipt.sent} />}
       <View style={{ alignItems: 'center' }}>
         <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12 }}>
           <Parchi ref={slip} data={data} />
         </View>
       </View>
-      <Button label={ur.receipt.send} onPress={sendImage} busy={busy} style={{ minHeight: 72 }} />
-      <Button label={ur.receipt.sendText} kind="secondary" onPress={sendText} />
-      <Button label={ur.receipt.done} kind="secondary" onPress={() => router.back()} />
+      <Button label={t.receipt.send} onPress={sendImage} busy={busy} style={{ minHeight: 72 }} />
+      <Button label={t.receipt.sendText} kind="secondary" onPress={sendText} />
+      <Button label={t.receipt.done} kind="secondary" onPress={() => router.back()} />
       <T variant="small" style={{ textAlign: 'center' }}>
-        {ur.receipt.ref} {entry.ref_code}
+        {t.receipt.ref} {entry.ref_code}
       </T>
     </Screen>
   );

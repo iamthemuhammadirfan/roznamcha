@@ -2,18 +2,15 @@ import {
   NotoNaskhArabic_400Regular,
   NotoNaskhArabic_700Bold,
 } from '@expo-google-fonts/noto-naskh-arabic';
-import {
-  NotoNastaliqUrdu_400Regular,
-  NotoNastaliqUrdu_700Bold,
-} from '@expo-google-fonts/noto-nastaliq-urdu';
 import { PowerSyncContext } from '@powersync/react-native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { powersync } from '@/db';
+import { ensureDirection } from '@/i18n';
 import { ActiveProjectProvider } from '@/state/active-project';
 import { SessionProvider, useSession } from '@/state/session';
 
@@ -25,15 +22,30 @@ SplashScreen.preventAutoHideAsync();
 // session are ready.
 function Gate({ fontsLoaded }: { fontsLoaded: boolean }) {
   const { state } = useSession();
-  const booting = !fontsLoaded || state.status === 'loading';
-
+  // Urdu ⇄ English also flips the layout direction, which only applies on restart. On
+  // first launch (or if the phone's language disagrees with the saved choice) this
+  // flips it and restarts once, behind the splash.
+  const [directionOk, setDirectionOk] = useState(false);
   useEffect(() => {
-    if (!booting) SplashScreen.hideAsync();
-  }, [booting]);
+    ensureDirection().then((restarting) => {
+      if (!restarting) setDirectionOk(true);
+    });
+  }, []);
+  const booted = fontsLoaded && directionOk;
+  // (app) only becomes reachable once everything it renders is ready; until then the
+  // router parks on sign-in behind the splash.
+  const ready = booted && state.status === 'ready';
+  const signedOut = state.status === 'signedOut' || state.status === 'noMembership';
 
-  const ready = state.status === 'ready';
+  // Hide the splash from the screen that ends up shown, not when the guard flips: the
+  // redirect off sign-in lands a frame after this render, so hiding here would flash
+  // sign-in. (app)/_layout hides it once it has mounted.
+  useEffect(() => {
+    if (booted && signedOut) SplashScreen.hideAsync();
+  }, [booted, signedOut]);
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, animation: 'none' }}>
       <Stack.Protected guard={ready}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
@@ -48,8 +60,7 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     NotoNaskhArabic_400Regular,
     NotoNaskhArabic_700Bold,
-    NotoNastaliqUrdu_400Regular,
-    NotoNastaliqUrdu_700Bold,
+    JameelNooriNastaleeq: require('@/assets/fonts/JameelNooriNastaleeq.ttf'),
   });
 
   return (

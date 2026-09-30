@@ -4,7 +4,7 @@ import { Alert, View } from 'react-native';
 
 import { useAllAssignments, useProjects, useWorkers } from '@/db/hooks';
 import { useActiveProject } from '@/state/active-project';
-import { ur } from '@/strings.ur';
+import { t, tradeLabel } from '@/i18n';
 import { Button, Card, Empty, Field, Phone, Row, Screen } from '@/ui/controls';
 import { Num, T } from '@/ui/text';
 import { colors, TOUCH_MIN } from '@/ui/theme';
@@ -37,7 +37,7 @@ export function Directory({ picking = false }: { picking?: boolean }) {
     }
     const already = assignments.some((a) => a.worker_id === workerId && a.project_id === projectId && a.is_active);
     if (already) {
-      Alert.alert(ur.assignment.alreadyOn);
+      Alert.alert(t.assignment.alreadyOn);
       return;
     }
     router.push({ pathname: '/assign', params: { workerId } });
@@ -45,8 +45,8 @@ export function Directory({ picking = false }: { picking?: boolean }) {
 
   return (
     <Screen>
-      <Field label={ur.worker.search} value={q} onChangeText={setQ} autoFocus={picking} />
-      {filtered.length === 0 ? <Empty text={ur.worker.notFound} /> : null}
+      <Field label={t.worker.search} value={q} onChangeText={setQ} autoFocus={picking} />
+      {filtered.length === 0 ? <Empty text={t.worker.notFound} /> : null}
       {filtered.map((w) => {
         const on = assignments.filter((a) => a.worker_id === w.id && a.is_active);
         return (
@@ -58,13 +58,13 @@ export function Directory({ picking = false }: { picking?: boolean }) {
                 </T>
                 {w.father_name ? (
                   <T variant="small">
-                    {ur.worker.son} {w.father_name}
+                    {t.worker.son} {w.father_name}
                   </T>
                 ) : null}
                 <Phone value={w.phone} />
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                {w.trade ? <T variant="small">{w.trade}</T> : null}
+                {w.trade ? <T variant="small">{tradeLabel(w.trade)}</T> : null}
                 {on.length ? (
                   <Row>
                     {on.map((a) => (
@@ -74,7 +74,7 @@ export function Directory({ picking = false }: { picking?: boolean }) {
                     ))}
                   </Row>
                 ) : (
-                  <T variant="small">{ur.worker.noProjects}</T>
+                  <T variant="small">{t.worker.noProjects}</T>
                 )}
               </View>
             </Row>
@@ -82,7 +82,7 @@ export function Directory({ picking = false }: { picking?: boolean }) {
         );
       })}
       <Button
-        label={ur.worker.createNew}
+        label={t.worker.createNew}
         kind="secondary"
         onPress={() =>
           router.push({ pathname: '/worker-form', params: picking ? { assign: '1', name: query } : { name: query } })

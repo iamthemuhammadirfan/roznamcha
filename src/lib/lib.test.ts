@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { computeBalance, reversedIds } from './balance';
-import { addDays, daysBetween, formatDayUr } from './dates';
+import { addDays, daysBetween, formatDay, formatDayUr, weekday } from './dates';
 import { formatRupees, parseRupees, toWhatsAppNumber } from './money';
 import { makeRefCode } from './ref-code';
 
@@ -39,6 +39,13 @@ describe('dates', () => {
 
   test('formats in Urdu with Latin digits', () => {
     expect(formatDayUr('2026-09-14')).toBe('14 ستمبر 2026');
+  });
+
+  test('formats in English when the app is in English', () => {
+    expect(formatDay('2026-09-14', 'en')).toBe('14 September 2026');
+    expect(formatDay('2026-09-14', 'ur')).toBe('14 ستمبر 2026');
+    expect(weekday('2026-09-24', 'en')).toBe('Thursday');
+    expect(weekday('2026-09-24', 'ur')).toBe('جمعرات');
   });
 });
 

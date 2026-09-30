@@ -2,7 +2,7 @@ import * as Updates from 'expo-updates';
 
 import { useRejectedWrites } from '@/db/hooks';
 import { dismissRejected } from '@/db/mutations';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 
 import { Button, Card, Row } from './controls';
 import { Num, T } from './text';
@@ -14,8 +14,8 @@ export function UpdateBanner() {
   if (!isUpdatePending) return null;
   return (
     <Card style={{ backgroundColor: colors.brandSoft }}>
-      <T variant="bodyBold">{ur.settings.updateReady}</T>
-      <Button label={ur.settings.restart} onPress={() => Updates.reloadAsync()} />
+      <T variant="bodyBold">{t.settings.updateReady}</T>
+      <Button label={t.settings.restart} onPress={() => Updates.reloadAsync()} />
     </Card>
   );
 }
@@ -31,17 +31,17 @@ export function NotSaved() {
           {rejected.length}
         </Num>
         <T variant="h2" style={{ color: colors.recover }}>
-          {ur.dashboard.notSaved}
+          {t.dashboard.notSaved}
         </T>
       </Row>
-      <T variant="small">{ur.dashboard.notSavedHelp}</T>
+      <T variant="small">{t.dashboard.notSavedHelp}</T>
       {rejected.map((r) => (
         <Row key={r.id} style={{ justifyContent: 'space-between' }}>
           <Num style={{ fontSize: 13, flexShrink: 1 }} numberOfLines={2}>
             {r.table_name} {r.op} · {r.error}
           </Num>
           <T variant="small" style={{ color: colors.brand }} onPress={() => dismissRejected(r.id)}>
-            {ur.dashboard.dismiss}
+            {t.dashboard.dismiss}
           </T>
         </Row>
       ))}

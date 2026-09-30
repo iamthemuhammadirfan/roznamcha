@@ -16,10 +16,14 @@ export const colors = {
 };
 
 export const fonts = {
-  naskh: 'NotoNaskhArabic_400Regular',
-  naskhBold: 'NotoNaskhArabic_700Bold',
-  nastaliq: 'NotoNastaliqUrdu_400Regular',
-  nastaliqBold: 'NotoNastaliqUrdu_700Bold',
+  // Urdu UI text. Nastaliq needs roughly double the line height of Latin text, or the
+  // descenders clip — the text styles below are sized for it.
+  urdu: 'JameelNooriNastaleeq',
+  // Latin digits in Urdu mode: Naskh's digits are cleaner at small sizes than Nastaliq's.
+  digits: 'NotoNaskhArabic_400Regular',
+  digitsBold: 'NotoNaskhArabic_700Bold',
+  // English UI uses the platform font (undefined = system default).
+  latin: undefined as string | undefined,
 };
 
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };

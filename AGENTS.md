@@ -44,7 +44,8 @@ Docs: https://docs.expo.dev/eas/index.md
 
 - Balances are derived (`src/lib/balance.ts`), never stored or typed. The ledger is append-only: fix mistakes with a `correction` entry, never an update/delete.
 - Money is integer paisa; calendar days are `YYYY-MM-DD` strings.
-- Every user-facing string goes in `src/strings.ur.ts`.
-- RTL is forced at build time. Never use `left`/`right` or explicit `textAlign` left/right; digits go in `<Num>`, money in `<Money>`.
+- Every user-facing string goes in `src/strings.ur.ts` **and** `src/strings.en.ts` (typecheck fails if English is missing). Screens use `t` from `@/i18n`; the parchi and its WhatsApp text always use `ur`.
+- Urdu is RTL, English LTR; the language is fixed per launch (`@/i18n` reads `I18nManager.isRTL`) and switching restarts the app. Never use `left`/`right` or explicit `textAlign` left/right; digits go in `<Num>`, money in `<Money>`.
+- Urdu text uses Jameel Noori Nastaleeq with ~2× line height (see `src/ui/text.tsx`); don't put Urdu text in fixed-height boxes.
 - PowerSync does not enforce unique indexes locally — enforce them in `src/db/mutations.ts`. Server rules live in `supabase/migrations/`; add a new migration rather than editing an applied one.
 - Run `bun run test`, `bun run typecheck`, `bun run lint` before calling a change done.

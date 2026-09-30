@@ -7,7 +7,7 @@ import type { Project } from '@/db/schema';
 import { createProject, projectCodeTaken, setProjectActive, updateProject } from '@/db/mutations';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
-import { ur } from '@/strings.ur';
+import { t } from '@/i18n';
 import { Banner, Button, Field, Screen } from '@/ui/controls';
 
 export default function ProjectFormScreen() {
@@ -34,8 +34,8 @@ function ProjectForm({ existing }: { existing: Project | null }) {
   const readOnly = Boolean(id) && role !== 'owner';
 
   async function save() {
-    if (!code.trim() || !name.trim()) return setError(ur.project.codeRequired);
-    if (await projectCodeTaken(code, id)) return setError(ur.project.codeTaken);
+    if (!code.trim() || !name.trim()) return setError(t.project.codeRequired);
+    if (await projectCodeTaken(code, id)) return setError(t.project.codeTaken);
     setBusy(true);
     const input = { code, name_ur: name, address };
     if (id) {
@@ -51,10 +51,10 @@ function ProjectForm({ existing }: { existing: Project | null }) {
 
   function toggleArchive() {
     if (!existing) return;
-    Alert.alert(existing.is_active ? ur.project.archive : ur.project.unarchive, `${existing.code} ${existing.name_ur}`, [
-      { text: ur.action.cancel, style: 'cancel' },
+    Alert.alert(existing.is_active ? t.project.archive : t.project.unarchive, `${existing.code} ${existing.name_ur}`, [
+      { text: t.action.cancel, style: 'cancel' },
       {
-        text: ur.action.confirm,
+        text: t.action.confirm,
         onPress: async () => {
           await setProjectActive(existing.id, !existing.is_active);
           if (existing.is_active && projectId === existing.id) setProjectId(null);
@@ -67,13 +67,13 @@ function ProjectForm({ existing }: { existing: Project | null }) {
   return (
     <Screen>
       {error ? <Banner tone="recover" text={error} /> : null}
-      <Field label={ur.project.code} value={code} onChangeText={setCode} editable={!readOnly} style={{ writingDirection: "ltr" }} />
-      <Field label={ur.project.name} value={name} onChangeText={setName} editable={!readOnly} />
-      <Field label={ur.project.address} value={address} onChangeText={setAddress} editable={!readOnly} />
-      {!readOnly ? <Button label={ur.action.save} onPress={save} busy={busy} /> : null}
+      <Field label={t.project.code} value={code} onChangeText={setCode} editable={!readOnly} style={{ writingDirection: "ltr" }} />
+      <Field label={t.project.name} value={name} onChangeText={setName} editable={!readOnly} />
+      <Field label={t.project.address} value={address} onChangeText={setAddress} editable={!readOnly} />
+      {!readOnly ? <Button label={t.action.save} onPress={save} busy={busy} /> : null}
       {existing && role === 'owner' ? (
         <Button
-          label={existing.is_active ? ur.project.archive : ur.project.unarchive}
+          label={existing.is_active ? t.project.archive : t.project.unarchive}
           kind="secondary"
           onPress={toggleArchive}
         />
