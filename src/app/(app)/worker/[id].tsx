@@ -11,13 +11,15 @@ import {
   useWorkerEntries,
 } from '@/db/hooks';
 import { changeRate, endAssignment, reverseEntry } from '@/db/mutations';
-import type { LedgerEntry } from '@/db/schema';
+import type { Attendance, LedgerEntry } from '@/db/schema';
+import { summarize } from '@/lib/attendance';
 import { entryEffects, reversedIds } from '@/lib/balance';
 import { formatDay } from '@/lib/dates';
 import { parseRupees } from '@/lib/money';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
 import { entryKindLabel, lang, t, tradeLabel } from '@/i18n';
+import { StatusCount } from '@/ui/attendance';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Button, Card, Empty, Field, Phone, Row, Screen } from '@/ui/controls';
 import { Money, Num, T } from '@/ui/text';
@@ -71,11 +73,13 @@ function EntryRow({
 function ProjectBlock({
   a,
   entries,
+  days,
   balance,
   earned,
 }: {
   a: AssignmentWithProject;
   entries: LedgerEntry[];
+  days: Attendance[];
   balance: number;
   earned: number;
 }) {
@@ -85,6 +89,7 @@ function ProjectBlock({
   const effects = entryEffects(entries);
   const reversed = reversedIds(entries);
   const [rateDraft, setRateDraft] = useState<string | null>(null);
+  const summary = summarize(days);
 
   async function saveRate() {
     const paisa = rateDraft ? parseRupees(rateDraft) : null;
@@ -137,6 +142,14 @@ function ProjectBlock({
           </Row>
         ) : null}
       </Row>
+      {days.length > 0 ? (
+        // Earnings come from these days: a half day pays half the daily wage, absent pays nothing.
+        <Row style={{ flexWrap: 'wrap', gap: space.md }}>
+          <StatusCount status="full" n={summary.full} />
+          <StatusCount status="half" n={summary.half} />
+          <StatusCount status="absent" n={summary.absent} />
+        </Row>
+      ) : null}
       <BalanceChip paisa={balance} size={20} />
 
       {entries.length === 0 ? <T variant="small">{t.ledger.empty}</T> : null}
@@ -179,7 +192,8 @@ export default function WorkerDetail() {
   const worker = useWorker(id);
   const assignments = useWorkerAssignments(id);
   const entries = useWorkerEntries(id);
-  const balances = balancesByAssignment(useWorkerAttendance(id), entries);
+  const attendance = useWorkerAttendance(id);
+  const balances = balancesByAssignment(attendance, entries);
 
   if (!worker) return <Empty text={t.worker.notFound} />;
 
@@ -214,6 +228,7 @@ export default function WorkerDetail() {
           key={a.id}
           a={a}
           entries={entries.filter((e) => e.assignment_id === a.id)}
+          days={attendance.filter((d) => d.assignment_id === a.id)}
           balance={balances.get(a.id)?.balance ?? 0}
           earned={balances.get(a.id)?.earned ?? 0}
         />

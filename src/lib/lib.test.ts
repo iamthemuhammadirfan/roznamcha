@@ -1,7 +1,8 @@
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
 
-import { computeBalance, reversedIds } from './balance';
+import { activeOn, coverage, monthWeeks, nextStatus, summarize } from './attendance';
+import { attendanceEarning, computeBalance, reversedIds } from './balance';
 import { addDays, daysBetween, formatDay, formatDayUr, weekday } from './dates';
 import { formatRupees, parseRupees, toWhatsAppNumber } from './money';
 import { makeRefCode } from './ref-code';
@@ -78,6 +79,52 @@ describe('balance', () => {
     ];
     expect(computeBalance([], entries).balance).toBe(0);
     expect(reversedIds(entries).has('a')).toBe(true);
+  });
+});
+
+describe('attendance', () => {
+  test('a half day pays half the daily wage and an absent day pays nothing', () => {
+    expect(attendanceEarning({ status: 'full', rate_applied_paisa: 150000, overtime_hours: 0 })).toBe(150000);
+    expect(attendanceEarning({ status: 'half', rate_applied_paisa: 150000, overtime_hours: 0 })).toBe(75000);
+    expect(attendanceEarning({ status: 'absent', rate_applied_paisa: 150000, overtime_hours: 0 })).toBe(0);
+  });
+
+  test('tapping cycles full → half → absent → full', () => {
+    expect(nextStatus('full')).toBe('half');
+    expect(nextStatus('half')).toBe('absent');
+    expect(nextStatus('absent')).toBe('full');
+  });
+
+  test('a worker is only expected on days he was assigned', () => {
+    const a = { started_on: '2026-09-10', ended_on: '2026-09-20' };
+    expect(activeOn(a, '2026-09-09')).toBe(false);
+    expect(activeOn(a, '2026-09-10')).toBe(true);
+    expect(activeOn(a, '2026-09-20')).toBe(true);
+    expect(activeOn(a, '2026-09-21')).toBe(false);
+    expect(activeOn({ started_on: '2026-09-10', ended_on: null }, '2027-01-01')).toBe(true);
+  });
+
+  test('coverage says whether a day is fully marked', () => {
+    expect(coverage(0, 0)).toBe('none');
+    expect(coverage(5, 0)).toBe('missing');
+    expect(coverage(5, 3)).toBe('partial');
+    expect(coverage(5, 5)).toBe('complete');
+  });
+
+  test('summary counts overtime as a full day', () => {
+    expect(summarize([{ status: 'full' }, { status: 'overtime' }, { status: 'half' }, { status: 'absent' }])).toEqual({
+      full: 2,
+      half: 1,
+      absent: 1,
+    });
+  });
+
+  test('month grid starts on Monday and pads to whole weeks', () => {
+    // 1 September 2026 is a Tuesday.
+    const weeks = monthWeeks(2026, 9);
+    expect(weeks[0]).toEqual([null, '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06']);
+    expect(weeks.every((w) => w.length === 7)).toBe(true);
+    expect(weeks.flat().filter(Boolean).length).toBe(30);
   });
 });
 

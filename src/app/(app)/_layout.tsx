@@ -71,6 +71,8 @@ export default function AppLayout() {
       <Stack.Screen name="worker-form" options={{ headerTitle: title(t.worker.edit, false) }} />
       <Stack.Screen name="assign" options={{ headerTitle: title(t.assignment.title) }} />
       <Stack.Screen name="worker/[id]" options={{ headerTitle: title(t.ledger.title, false) }} />
+      <Stack.Screen name="attendance" options={{ headerTitle: title(t.attendance.title) }} />
+      <Stack.Screen name="attendance-day" options={{ headerTitle: title(t.attendance.title) }} />
       <Stack.Screen name="entry" options={{ headerTitle: title(t.entry.new) }} />
       <Stack.Screen name="receipt/[id]" options={{ headerTitle: title(t.receipt.title, false) }} />
     </Stack>
