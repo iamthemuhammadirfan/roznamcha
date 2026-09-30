@@ -53,6 +53,15 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "018eb358-0f11-4fcb-b3ff-d2c98c521c8c"
+      }
+    },
+    "owner": "iamthemuhammadirfan",
+    "updates": {
+      "url": "https://u.expo.dev/018eb358-0f11-4fcb-b3ff-d2c98c521c8c"
     }
   }
 }
