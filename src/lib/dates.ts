@@ -60,3 +60,14 @@ export function formatDay(day: Day, lang: 'ur' | 'en'): string {
 export function weekday(day: Day, lang: 'ur' | 'en'): string {
   return lang === 'ur' ? weekdayUr(day) : WEEKDAYS_EN[parse(day).getDay()];
 }
+
+/** "ستمبر 2026" / "September 2026". `month` is 1–12. */
+export function formatMonth(year: number, month: number, lang: 'ur' | 'en'): string {
+  return `${(lang === 'ur' ? MONTHS_UR : MONTHS_EN)[month - 1]} ${year}`;
+}
+
+/** Column headers for a Monday-first week. */
+export function weekdaysShort(lang: 'ur' | 'en'): string[] {
+  const names = lang === 'ur' ? WEEKDAYS_UR : WEEKDAYS_EN.map((d) => d.slice(0, 3));
+  return [...names.slice(1), names[0]];
+}

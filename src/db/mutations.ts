@@ -1,14 +1,15 @@
 // Every write goes to local SQLite first; PowerSync uploads it when there is signal.
 // PowerSync does not enforce unique indexes locally, so the checks Postgres would do
 // on upload are repeated here so the munshi sees them immediately.
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { getRandomBytes, randomUUID } from 'expo-crypto';
 
+import type { DayStatus } from '@/lib/attendance';
 import { today } from '@/lib/dates';
 import { makeRefCode } from '@/lib/ref-code';
 
 import { db } from './index';
-import { assignment, ledgerEntry, project, rejectedWrite, worker } from './schema';
+import { assignment, attendance, ledgerEntry, project, rejectedWrite, worker } from './schema';
 
 export interface WriteContext {
   businessId: string;
@@ -124,6 +125,59 @@ export async function changeRate(assignmentId: string, dailyRatePaisa: number) {
 
 export async function endAssignment(assignmentId: string) {
   await db.update(assignment).set({ is_active: false, ended_on: today(), ...touched() }).where(eq(assignment.id, assignmentId));
+}
+
+// ─── Attendance ──────────────────────────────────────────────────────────────
+
+export interface AttendanceMark {
+  assignmentId: string;
+  status: DayStatus;
+}
+
+/**
+ * Saves one day's haazri. One row per (assignment, date): an existing row gets its
+ * status changed, otherwise a row is created carrying today's daily wage, so a later
+ * rate change never recomputes this day. Changing a half day to full keeps the rate
+ * it was first marked at. Rows whose status didn't change are not rewritten.
+ */
+export async function saveAttendance(ctx: WriteContext, date: string, marks: AttendanceMark[]) {
+  if (marks.length === 0) return;
+  const ids = marks.map((m) => m.assignmentId);
+  await db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(attendance)
+      .where(and(eq(attendance.date, date), inArray(attendance.assignment_id, ids)));
+    const byAssignment = new Map(existing.map((r) => [r.assignment_id, r]));
+    const rates = new Map(
+      (await tx.select().from(assignment).where(inArray(assignment.id, ids))).map((a) => [a.id, a.daily_rate_paisa]),
+    );
+    const now = new Date().toISOString();
+
+    for (const m of marks) {
+      const row = byAssignment.get(m.assignmentId);
+      if (row) {
+        if (row.status === m.status) continue;
+        await tx
+          .update(attendance)
+          .set({ status: m.status, overtime_hours: 0, marked_at: now, updated_at: now })
+          .where(eq(attendance.id, row.id));
+        continue;
+      }
+      const rate = rates.get(m.assignmentId);
+      if (rate == null) continue;
+      await tx.insert(attendance).values({
+        id: randomUUID(),
+        assignment_id: m.assignmentId,
+        date,
+        status: m.status,
+        overtime_hours: 0,
+        rate_applied_paisa: rate,
+        marked_at: now,
+        ...meta(ctx),
+      });
+    }
+  });
 }
 
 // ─── Ledger (append-only) ────────────────────────────────────────────────────
