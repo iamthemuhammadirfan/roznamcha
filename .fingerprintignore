@@ -1,0 +1,5 @@
+# Local `expo run:android` lets React Native's Gradle plugin strip the legacy
+# package="…" attribute from library manifests in node_modules, in place. EAS installs
+# untouched copies, so counting these files makes the fingerprint (runtime version)
+# differ between this Mac and EAS and the cloud build fails at "Configure expo-updates".
+node_modules/**/android/src/main/AndroidManifest.xml
