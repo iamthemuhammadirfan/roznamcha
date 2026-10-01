@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "io.github.iamthemuhammadirfan.roznamcha",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [],
       "adaptiveIcon": {
         "backgroundColor": "#1F3A2E",
