@@ -45,3 +45,6 @@ example
 # local env (never commit keys)
 .env
 .env.local
+
+# Maestro output
+.maestro/out/

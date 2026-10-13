@@ -2,12 +2,13 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
-import { useWorker, useWorkers } from '@/db/hooks';
+import { useTrades, useWorker, useWorkers } from '@/db/hooks';
 import { createWorker, updateWorker } from '@/db/mutations';
 import type { Worker } from '@/db/schema';
 import { normalizePhone } from '@/lib/money';
 import { useMember, useWriteContext } from '@/state/session';
-import { t, tradeLabel, tradeOptions } from '@/i18n';
+import { t, tradeLabel } from '@/i18n';
+import { ur } from '@/strings.ur';
 import { Banner, Button, Choice, Field, Screen } from '@/ui/controls';
 import { T } from '@/ui/text';
 
@@ -46,7 +47,19 @@ function WorkerForm({ params, existing }: { params: Params; existing: Worker | n
   const [father, setFather] = useState(existing?.father_name ?? '');
   const [phone, setPhone] = useState(existing?.phone ?? (prefillIsPhone ? prefill : ''));
   const [cnic, setCnic] = useState(existing?.cnic_last4 ?? '');
-  const [trade, setTrade] = useState<string>(existing?.trade ?? tradeOptions[1]);
+  const trades = useTrades();
+  // undefined = untouched. A new worker then defaults to labourer once the list has loaded.
+  // A worker whose trade was since removed from the list still shows it, so saving
+  // doesn't silently drop it.
+  const [picked, setTrade] = useState<string | null | undefined>(undefined);
+  const trade =
+    picked !== undefined
+      ? picked
+      : existing
+        ? existing.trade
+        : (trades.find((r) => r.name === ur.trade.labourer)?.name ?? null);
+  const tradeNames = trades.map((r) => r.name);
+  if (trade && !tradeNames.includes(trade)) tradeNames.push(trade);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -85,7 +98,7 @@ function WorkerForm({ params, existing }: { params: Params; existing: Worker | n
   }
 
   return (
-    <Screen>
+    <Screen footer={!readOnly ? <Button icon="content-save-outline" label={t.action.save} onPress={save} busy={busy} /> : undefined}>
       {error ? <Banner tone="recover" text={error} /> : null}
       <Field label={t.worker.name} value={name} onChangeText={setName} editable={!readOnly} />
       <Field label={t.worker.fatherName} value={father} onChangeText={setFather} editable={!readOnly} />
@@ -100,11 +113,10 @@ function WorkerForm({ params, existing }: { params: Params; existing: Worker | n
       />
       <T variant="bodyBold">{t.worker.trade}</T>
       <Choice
-        options={tradeOptions.map((v) => ({ value: v, label: tradeLabel(v) }))}
-        value={trade}
+        options={tradeNames.map((v) => ({ value: v, label: tradeLabel(v) }))}
+        value={trade ?? ''}
         onChange={(v) => !readOnly && setTrade(v)}
       />
-      {!readOnly ? <Button label={t.action.save} onPress={save} busy={busy} /> : null}
     </Screen>
   );
 }

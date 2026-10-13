@@ -5,8 +5,19 @@ import { and, asc, desc, eq, getTableColumns } from 'drizzle-orm';
 import { type Balance, computeBalance } from '@/lib/balance';
 
 import { db } from './index';
-import { appConfig, assignment, attendance, ledgerEntry, project, rejectedWrite, worker } from './schema';
-import type { Attendance, LedgerEntry } from './schema';
+import {
+  appConfig,
+  assignment,
+  attendance,
+  expenseCategory,
+  ledgerEntry,
+  project,
+  projectExpense,
+  rejectedWrite,
+  trade,
+  worker,
+} from './schema';
+import type { Attendance, ExpenseCategory, LedgerEntry, ProjectExpense } from './schema';
 
 type Query = Parameters<typeof toCompilableQuery>[0];
 
@@ -123,6 +134,10 @@ export function useWorker(id: string) {
   return rows[0] ?? null;
 }
 
+export function useTrades() {
+  return useLive<typeof trade.$inferSelect>(db.select().from(trade).orderBy(asc(trade.created_at), asc(trade.name)));
+}
+
 export type AssignmentWithProject = typeof assignment.$inferSelect & {
   project_code: string;
   project_name: string;
@@ -157,6 +172,29 @@ export function useWorkerAttendance(workerId: string) {
       .from(attendance)
       .innerJoin(assignment, eq(assignment.id, attendance.assignment_id))
       .where(eq(assignment.worker_id, workerId)),
+  );
+}
+
+// ─── Project expenses ────────────────────────────────────────────────────────
+
+/** Every category, hidden ones included — old expenses still need their names. */
+export function useExpenseCategories() {
+  return useLive<ExpenseCategory>(
+    db.select().from(expenseCategory).orderBy(asc(expenseCategory.created_at), asc(expenseCategory.name)),
+  );
+}
+
+export function useAllExpenses() {
+  return useLive<ProjectExpense>(db.select().from(projectExpense));
+}
+
+export function useProjectExpenses(projectId: string) {
+  return useLive<ProjectExpense>(
+    db
+      .select()
+      .from(projectExpense)
+      .where(eq(projectExpense.project_id, projectId))
+      .orderBy(desc(projectExpense.date), desc(projectExpense.created_at)),
   );
 }
 

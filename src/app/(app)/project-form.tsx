@@ -65,12 +65,12 @@ function ProjectForm({ existing }: { existing: Project | null }) {
   }
 
   return (
-    <Screen>
+    <Screen
+      footer={!readOnly ? <Button icon="content-save-outline" label={t.action.save} onPress={save} busy={busy} /> : undefined}>
       {error ? <Banner tone="recover" text={error} /> : null}
       <Field label={t.project.code} value={code} onChangeText={setCode} editable={!readOnly} style={{ writingDirection: "ltr" }} />
       <Field label={t.project.name} value={name} onChangeText={setName} editable={!readOnly} />
       <Field label={t.project.address} value={address} onChangeText={setAddress} editable={!readOnly} />
-      {!readOnly ? <Button label={t.action.save} onPress={save} busy={busy} /> : null}
       {existing && role === 'owner' ? (
         <Button
           label={existing.is_active ? t.project.archive : t.project.unarchive}

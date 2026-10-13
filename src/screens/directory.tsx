@@ -1,18 +1,31 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAllAssignments, useProjects, useWorkers } from '@/db/hooks';
+import type { Project, Worker } from '@/db/schema';
 import { useActiveProject } from '@/state/active-project';
 import { t, tradeLabel } from '@/i18n';
-import { Button, Card, Empty, Field, Phone, Row, Screen } from '@/ui/controls';
+import { Chip } from '@/ui/chip';
+import { Empty, Row } from '@/ui/controls';
+import { Fab } from '@/ui/fab';
+import { SearchField } from '@/ui/search-field';
 import { Num, T } from '@/ui/text';
-import { colors, TOUCH_MIN } from '@/ui/theme';
+import { colors, space, TOUCH_MIN } from '@/ui/theme';
+import { WorkerAvatar } from '@/ui/worker-avatar';
+
+const AVATAR = 44;
 
 /**
  * The global worker directory. As a tab, tapping a person opens their ledger. In pick
  * mode ("add worker" on a project) tapping a person goes on to assign them to the
- * active project — searching here first is what stops duplicate people.
+ * active project — searching here first is what stops duplicate people, which is why
+ * "create new" is the quieter outlined button in that mode.
+ *
+ * Search and filters stay fixed at the top; only the list scrolls, as compact rows so a
+ * screenful shows six or seven people rather than two.
  */
 export function Directory({ picking = false }: { picking?: boolean }) {
   const { projectId } = useActiveProject();
@@ -20,15 +33,27 @@ export function Directory({ picking = false }: { picking?: boolean }) {
   const assignments = useAllAssignments();
   const projects = useProjects();
   const [q, setQ] = useState('');
+  const [trade, setTrade] = useState<string | null>(null);
 
-  const codeOf = new Map(projects.map((p) => [p.id, p.code]));
+  const projectOf = new Map(projects.map((p) => [p.id, p]));
   const query = q.trim();
   const digits = query.replace(/\D/g, '');
-  const filtered = workers.filter((w) => {
+  const matches = workers.filter((w) => {
     if (!query) return true;
     if (digits.length >= 3 && w.phone?.replace(/\D/g, '').includes(digits)) return true;
     return w.name_ur.includes(query) || (w.father_name ?? '').includes(query);
   });
+  // Only trades someone actually has, most common first.
+  const tradeCounts = new Map<string, number>();
+  for (const w of matches) if (w.trade) tradeCounts.set(w.trade, (tradeCounts.get(w.trade) ?? 0) + 1);
+  const trades = [...tradeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n);
+  const filtered = trade ? matches.filter((w) => w.trade === trade) : matches;
+
+  const sitesOf = (workerId: string) =>
+    assignments
+      .filter((a) => a.worker_id === workerId && a.is_active)
+      .map((a) => projectOf.get(a.project_id))
+      .filter((p) => p !== undefined);
 
   function onPick(workerId: string) {
     if (!picking) {
@@ -44,50 +69,160 @@ export function Directory({ picking = false }: { picking?: boolean }) {
   }
 
   return (
-    <Screen>
-      <Field label={t.worker.search} value={q} onChangeText={setQ} autoFocus={picking} />
-      {filtered.length === 0 ? <Empty text={t.worker.notFound} /> : null}
-      {filtered.map((w) => {
-        const on = assignments.filter((a) => a.worker_id === w.id && a.is_active);
-        return (
-          <Card key={w.id} onPress={() => onPick(w.id)} style={{ minHeight: TOUCH_MIN }}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <View style={{ flexShrink: 1 }}>
-                <T variant="h2" style={{ fontSize: 20 }}>
-                  {w.name_ur}
-                </T>
-                {w.father_name ? (
-                  <T variant="small">
-                    {t.worker.son} {w.father_name}
-                  </T>
-                ) : null}
-                <Phone value={w.phone} />
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                {w.trade ? <T variant="small">{tradeLabel(w.trade)}</T> : null}
-                {on.length ? (
-                  <Row>
-                    {on.map((a) => (
-                      <Num key={a.id} bold style={{ color: colors.brand }}>
-                        {codeOf.get(a.project_id)}
-                      </Num>
-                    ))}
-                  </Row>
-                ) : (
-                  <T variant="small">{t.worker.noProjects}</T>
-                )}
-              </View>
-            </Row>
-          </Card>
-        );
-      })}
-      <Button
+    <SafeAreaView edges={['bottom']} style={styles.screen}>
+      <View style={styles.top}>
+        <SearchField value={q} onChangeText={setQ} placeholder={t.worker.search} autoFocus={picking} />
+        {trades.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={styles.chips}>
+            <Chip label={t.worker.allTrades} selected={trade === null} onPress={() => setTrade(null)} />
+            {trades.map((n) => (
+              <Chip key={n} label={tradeLabel(n)} selected={trade === n} onPress={() => setTrade(n)} />
+            ))}
+          </ScrollView>
+        ) : null}
+        <Row style={{ gap: space.xs }}>
+          <Num bold>{filtered.length}</Num>
+          <T variant="small" style={{ flex: 1 }}>
+            {t.worker.count}
+          </T>
+        </Row>
+      </View>
+
+      <FlatList
+        data={filtered}
+        keyExtractor={(w) => w.id}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.list}
+        ListEmptyComponent={<Empty text={t.worker.notFound} />}
+        ItemSeparatorComponent={() => (
+          <View style={styles.dividerWrap}>
+            <View style={styles.divider} />
+          </View>
+        )}
+        renderItem={({ item, index }) => (
+          <WorkerRow
+            w={item}
+            sites={sitesOf(item.id)}
+            first={index === 0}
+            last={index === filtered.length - 1}
+            onPress={() => onPick(item.id)}
+          />
+        )}
+      />
+
+      <Fab
+        icon="account-plus-outline"
         label={t.worker.createNew}
-        kind="secondary"
+        quiet={picking}
         onPress={() =>
           router.push({ pathname: '/worker-form', params: picking ? { assign: '1', name: query } : { name: query } })
         }
       />
-    </Screen>
+    </SafeAreaView>
   );
 }
+
+function WorkerRow({
+  w,
+  sites,
+  first,
+  last,
+  onPress,
+}: {
+  w: Worker;
+  sites: Project[];
+  first: boolean;
+  last: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        first && styles.rowFirst,
+        last && styles.rowLast,
+        pressed && { backgroundColor: colors.brandSoft },
+      ]}>
+      <WorkerAvatar name={w.name_ur} size={AVATAR} />
+      <View style={{ flex: 1 }}>
+        <Row style={{ gap: space.sm }}>
+          <T variant="bodyBold" numberOfLines={1} style={{ flex: 1 }}>
+            {w.name_ur}
+          </T>
+          {w.trade ? (
+            <View style={styles.trade}>
+              <T variant="small" style={{ color: colors.brand, fontSize: 14, lineHeight: 28 }}>
+                {tradeLabel(w.trade)}
+              </T>
+            </View>
+          ) : null}
+        </Row>
+        <Row style={{ gap: space.sm }}>
+          <T variant="small" numberOfLines={1} style={{ flex: 1 }}>
+            {w.father_name ? `${t.worker.son} ${w.father_name}` : ''}
+          </T>
+          {/* Where he works now: crane + the site's yellow number, so it can't be read as money. */}
+          {sites.map((p) => (
+            <Row key={p.id} style={{ gap: 2 }}>
+              <MaterialCommunityIcons name="crane" size={16} color={colors.muted} />
+              <View style={styles.plate}>
+                <Num bold style={{ fontSize: 13, lineHeight: 20, color: colors.siteInk }}>
+                  {p.code}
+                </Num>
+              </View>
+            </Row>
+          ))}
+        </Row>
+      </View>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  top: {
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingTop: space.md,
+    paddingBottom: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  chips: { gap: space.sm, alignItems: 'center' },
+  // Room under the last row so the floating button never hides it.
+  list: { padding: space.lg, paddingBottom: 96, flexGrow: 1 },
+  row: {
+    minHeight: TOUCH_MIN,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
+    borderStartWidth: 1,
+    borderEndWidth: 1,
+    borderColor: colors.border,
+  },
+  rowFirst: { borderTopWidth: 1, borderTopStartRadius: 14, borderTopEndRadius: 14 },
+  rowLast: { borderBottomWidth: 1, borderBottomStartRadius: 14, borderBottomEndRadius: 14 },
+  // The separator carries the list's side borders, so the outline has no gaps.
+  dividerWrap: { backgroundColor: colors.card, borderStartWidth: 1, borderEndWidth: 1, borderColor: colors.border },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginStart: space.md + AVATAR + space.md,
+  },
+  trade: { backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: space.sm },
+  plate: {
+    backgroundColor: colors.site,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.siteInk,
+    paddingHorizontal: 5,
+  },
+});

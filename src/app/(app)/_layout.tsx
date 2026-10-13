@@ -4,13 +4,12 @@ import { useEffect } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { useAppConfig } from '@/db/hooks';
-import { isUrdu, t } from '@/i18n';
+import { t } from '@/i18n';
 import { Button } from '@/ui/controls';
 import { useContentReady } from '@/ui/animated-splash';
-import { HeaderTitle, TabsHeaderTitle } from '@/ui/header';
-import { SyncBadge } from '@/ui/sync-badge';
+import { AppHeader, HeaderTitle, TabsHeaderTitle } from '@/ui/header';
 import { T } from '@/ui/text';
-import { colors, fonts, space } from '@/ui/theme';
+import { colors, space } from '@/ui/theme';
 
 function versionBelow(current: string, min: string) {
   const a = current.split('.').map(Number);
@@ -58,10 +57,7 @@ export default function AppLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: colors.brand },
-        headerTintColor: colors.white,
-        headerTitleStyle: { fontFamily: isUrdu ? fonts.urdu : fonts.latin },
-        headerRight: () => <SyncBadge />,
+        header: (props) => <AppHeader {...props} />,
         contentStyle: { backgroundColor: colors.bg },
       }}>
       <Stack.Screen name="(tabs)" options={{ headerTitle: () => <TabsHeaderTitle /> }} />
@@ -70,6 +66,10 @@ export default function AppLayout() {
       <Stack.Screen name="project-form" options={{ headerTitle: title(t.project.title, false) }} />
       <Stack.Screen name="add-worker" options={{ headerTitle: title(t.action.addWorker) }} />
       <Stack.Screen name="worker-form" options={{ headerTitle: title(t.worker.edit, false) }} />
+      <Stack.Screen name="expense" options={{ headerTitle: title(t.expense.add) }} />
+      <Stack.Screen name="project-expenses" options={{ headerTitle: title(t.expense.title) }} />
+      <Stack.Screen name="expense-categories" options={{ headerTitle: title(t.expense.categories, false) }} />
+      <Stack.Screen name="trades" options={{ headerTitle: title(t.trades.title, false) }} />
       <Stack.Screen name="assign" options={{ headerTitle: title(t.assignment.title) }} />
       <Stack.Screen name="worker/[id]" options={{ headerTitle: title(t.ledger.title, false) }} />
       <Stack.Screen name="attendance" options={{ headerTitle: title(t.attendance.title) }} />

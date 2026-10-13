@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/noto-naskh-arabic": "^0.4.5",
+    "@expo/vector-icons": "^15.0.2",
     "@op-engineering/op-sqlite": "^18.2.5",
     "@powersync/common": "^2.3.0",
     "@powersync/drizzle-driver": "^0.8.0",
@@ -51,7 +52,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "build:dev": "eas build -p android --profile development",
-    "build:apk": "eas build -p android --profile production"
+    "build:apk": "eas build -p android --profile production",
+    "emulator": "emulator -avd ${AVD:-Pixel10} -no-snapshot-save -no-boot-anim",
+    "e2e": "maestro test .maestro --test-output-dir=.maestro/out",
+    "logs": "adb logcat --pid=$(adb shell pidof -s io.github.iamthemuhammadirfan.roznamcha) ReactNativeJS:V AndroidRuntime:E *:W"
   },
   "private": true
 }

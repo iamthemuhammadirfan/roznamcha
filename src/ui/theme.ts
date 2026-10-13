@@ -13,6 +13,10 @@ export const colors = {
   pending: '#B26A00',
   pendingSoft: '#FFF1DB',
   white: '#FFFFFF',
+  // Site-board accents: safety yellow and the near-black of hazard tape. Only for the
+  // project number plate and the stripe — never for text on the page background.
+  site: '#F2B300',
+  siteInk: '#262421',
 };
 
 export const fonts = {

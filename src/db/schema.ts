@@ -46,6 +46,16 @@ export const worker = sqliteTable('worker', {
   ...owned(),
 });
 
+// A worker's trade is stored on the worker as this name, not as an id, so deleting a
+// trade here never changes the workers that have it.
+export const trade = sqliteTable('trade', {
+  id: id(),
+  business_id: text('business_id').notNull(),
+  name: text('name').notNull(),
+  created_by: text('created_by'),
+  created_at: text('created_at'),
+});
+
 export const assignment = sqliteTable('assignment', {
   id: id(),
   worker_id: text('worker_id').notNull(),
@@ -94,6 +104,27 @@ export const settlement = sqliteTable('settlement', {
   ...owned(),
 });
 
+export const expenseCategory = sqliteTable('expense_category', {
+  id: id(),
+  name: text('name').notNull(),
+  is_active: integer('is_active', { mode: 'boolean' }).notNull(),
+  ...owned(),
+});
+
+// Site spending that isn't a wage. Append-only like the ledger: a wrong expense gets a
+// correction that cancels it.
+export const projectExpense = sqliteTable('project_expense', {
+  id: id(),
+  project_id: text('project_id').notNull(),
+  category_id: text('category_id').notNull(),
+  date: text('date').notNull(),
+  kind: text('kind').notNull(),
+  amount_paisa: integer('amount_paisa').notNull(),
+  note: text('note'),
+  reverses_id: text('reverses_id'),
+  ...owned(),
+});
+
 export const appConfig = sqliteTable('app_config', {
   id: id(),
   min_supported_version: text('min_supported_version'),
@@ -116,10 +147,13 @@ export const drizzleSchema = {
   membership,
   project,
   worker,
+  trade,
   assignment,
   attendance,
   ledger_entry: ledgerEntry,
   settlement,
+  expense_category: expenseCategory,
+  project_expense: projectExpense,
   app_config: appConfig,
   rejected_write: rejectedWrite,
 };
@@ -129,16 +163,22 @@ export const AppSchema = new DrizzleAppSchema({
   membership,
   project,
   worker,
+  trade,
   assignment,
   attendance,
   ledger_entry: ledgerEntry,
   settlement,
+  expense_category: expenseCategory,
+  project_expense: projectExpense,
   app_config: appConfig,
   rejected_write: { tableDefinition: rejectedWrite, options: { localOnly: true } },
 });
 
 export type Project = typeof project.$inferSelect;
 export type Worker = typeof worker.$inferSelect;
+export type Trade = typeof trade.$inferSelect;
+export type ExpenseCategory = typeof expenseCategory.$inferSelect;
+export type ProjectExpense = typeof projectExpense.$inferSelect;
 export type Assignment = typeof assignment.$inferSelect;
 export type Attendance = typeof attendance.$inferSelect;
 export type LedgerEntry = typeof ledgerEntry.$inferSelect;

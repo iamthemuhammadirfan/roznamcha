@@ -1,18 +1,18 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { type AssignmentWithWorker, useProjectAssignments, useProjectAttendance } from '@/db/hooks';
 import { saveAttendance } from '@/db/mutations';
 import type { Attendance } from '@/db/schema';
-import { activeOn, type DayStatus, nextStatus, summarize } from '@/lib/attendance';
+import { activeOn, type DayStatus, summarize } from '@/lib/attendance';
 import { attendanceEarning } from '@/lib/balance';
 import { daysBetween, formatDay, today, weekday } from '@/lib/dates';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
 import { lang, t } from '@/i18n';
-import { STATUS_STYLE, StatusCount, statusLabel } from '@/ui/attendance';
+import { StatusCount, StatusPicker } from '@/ui/attendance';
 import { Banner, Button, Card, Empty, Row } from '@/ui/controls';
 import { Money, Num, T } from '@/ui/text';
 import { colors, space, TOUCH_MIN } from '@/ui/theme';
@@ -77,9 +77,9 @@ export default function AttendanceDay() {
     0,
   );
 
-  function tap(a: AssignmentWithWorker) {
+  function set(a: AssignmentWithWorker, status: DayStatus) {
     if (isLocked(a)) return Alert.alert(t.attendance.lockedOld);
-    setDraft((d) => ({ ...d, [a.id]: nextStatus(statusOf(a)) }));
+    setDraft((d) => ({ ...d, [a.id]: status }));
   }
 
   async function commit() {
@@ -111,12 +111,17 @@ export default function AttendanceDay() {
 
   const header = (
     <View style={{ gap: space.md, paddingBottom: space.md }}>
-      <Card style={{ backgroundColor: colors.brandSoft }}>
-        <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <T variant="h2">{weekday(date, lang)}</T>
-          <Num bold style={{ fontSize: 20 }}>
-            {formatDay(date, lang)}
-          </Num>
+      <Card>
+        <Row style={{ alignItems: 'flex-start' }}>
+          <View style={styles.datePlate}>
+            <Num bold style={{ fontSize: 26, lineHeight: 34, color: colors.siteInk }}>
+              {Number(date.slice(8))}
+            </Num>
+          </View>
+          <View style={{ flex: 1 }}>
+            <T variant="h2">{weekday(date, lang)}</T>
+            <T variant="small">{formatDay(date, lang)}</T>
+          </View>
         </Row>
         <Row style={{ flexWrap: 'wrap', gap: space.md }}>
           <StatusCount status="full" n={summary.full} />
@@ -124,7 +129,9 @@ export default function AttendanceDay() {
           <StatusCount status="absent" n={summary.absent} />
         </Row>
         <Row style={{ justifyContent: 'space-between' }}>
-          <T variant="small">{t.attendance.dayWages}</T>
+          <T variant="small" style={{ flex: 1 }}>
+            {t.attendance.dayWages}
+          </T>
           <Money paisa={wages} size={20} />
         </Row>
       </Card>
@@ -144,20 +151,12 @@ export default function AttendanceDay() {
         ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
         renderItem={({ item: a }) => {
           const status = statusOf(a);
-          const { fg, bg } = STATUS_STYLE[status];
-          const unsaved = changes.includes(a);
+          // Only rows the munshi touched; an unmarked day's default "present" is covered by
+          // the footer count, so a fresh sheet isn't striped from top to bottom.
+          const edited = a.id in draft && changes.includes(a);
           return (
-            <Pressable
-              onPress={() => tap(a)}
-              accessibilityRole="button"
-              accessibilityLabel={`${a.worker_name}, ${statusLabel(status)}`}
-              style={({ pressed }) => [
-                styles.row,
-                unsaved && styles.unsaved,
-                isLocked(a) && { opacity: 0.6 },
-                pressed && { opacity: 0.7 },
-              ]}>
-              <View style={{ flexShrink: 1 }}>
+            <View style={[styles.row, edited && styles.unsaved, isLocked(a) && { opacity: 0.6 }]}>
+              <View style={{ flex: 1 }}>
                 <T variant="h2" style={{ fontSize: 20 }}>
                   {a.worker_name}
                 </T>
@@ -166,30 +165,29 @@ export default function AttendanceDay() {
                     {t.worker.son} {a.worker_father_name}
                   </T>
                 ) : null}
-                {unsaved ? (
-                  <T variant="small" style={{ color: colors.pending }}>
-                    {t.attendance.notSavedYet}
-                  </T>
-                ) : null}
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <View style={[styles.pill, { backgroundColor: bg, borderColor: fg }]}>
-                  <T variant="bodyBold" style={{ color: fg }}>
-                    {statusLabel(status)}
-                  </T>
-                </View>
                 <Money
                   paisa={attendanceEarning({ status, rate_applied_paisa: rateOf(a), overtime_hours: 0 })}
-                  size={15}
+                  size={14}
                   color={colors.muted}
                 />
               </View>
-            </Pressable>
+              <StatusPicker value={status} onChange={(s) => set(a, s)} disabled={isLocked(a)} />
+            </View>
           );
         }}
       />
       {people.length > 0 ? (
         <View style={styles.footer}>
+          {changes.length > 0 ? (
+            <Row style={{ justifyContent: 'center' }}>
+              <Num bold style={{ color: colors.pending }}>
+                {changes.length}
+              </Num>
+              <T variant="small" style={{ color: colors.pending }}>
+                {t.attendance.unsavedChanges}
+              </T>
+            </Row>
+          ) : null}
           <Button
             // No count in the label: digits inside an Urdu string get reordered by bidi.
             label={changes.length > 0 ? t.attendance.save : t.attendance.saved}
@@ -219,9 +217,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
   },
-  unsaved: { borderColor: colors.pending, borderStyle: 'dashed', borderWidth: 2 },
-  pill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: space.md, minWidth: 96, alignItems: 'center' },
+  // A thin amber edge on the reading-start side marks a row that changed since the last save.
+  unsaved: { borderStartWidth: 4, borderStartColor: colors.pending },
+  datePlate: {
+    backgroundColor: colors.site,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.siteInk,
+    minWidth: 52,
+    alignItems: 'center',
+  },
   footer: {
+    gap: space.xs,
     padding: space.lg,
     paddingTop: space.sm,
     borderTopWidth: StyleSheet.hairlineWidth,

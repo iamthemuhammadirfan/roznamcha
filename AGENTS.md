@@ -49,3 +49,12 @@ Docs: https://docs.expo.dev/eas/index.md
 - Urdu text uses Jameel Noori Nastaleeq with ~2× line height (see `src/ui/text.tsx`); don't put Urdu text in fixed-height boxes.
 - PowerSync does not enforce unique indexes locally — enforce them in `src/db/mutations.ts`. Server rules live in `supabase/migrations/`; add a new migration rather than editing an applied one.
 - Run `bun run test`, `bun run typecheck`, `bun run lint` before calling a change done.
+
+## Device testing (Android emulator + Maestro)
+
+- `bun run emulator` boots the AVD (`Pixel10` by default, override with `AVD=<name>`). Then use `bun run start` for the dev client, or `bun run android` to build and install it.
+- The `maestro` MCP server in `.mcp.json` lets agents tap, type, read the view hierarchy and take screenshots on the running emulator. Prefer it over raw `adb` for UI checks.
+- `bun run logs` streams the running app's JS logs (`ReactNativeJS`), crashes and warnings. When testing a scenario, run `adb logcat -c` first, then read logs afterwards with `adb logcat -d ReactNativeJS:V AndroidRuntime:E *:S`. Filter by tag, not `--pid`: a crash or relaunch changes the process id, so the crash would be filtered out.
+- Flows live in `.maestro/*.yaml` and run with `bun run e2e`. Output and screenshots go to `.maestro/out/`, which is gitignored. App id: `io.github.iamthemuhammadirfan.roznamcha`.
+- Use Maestro selectors that match the visible Urdu/English text or a `testID`. Don't rely on screen coordinates, because the layout is RTL in Urdu.
+- Install Maestro with `curl -fsSL https://get.maestro.mobile.dev | bash`. It needs Java 17+ and `~/.maestro/bin` on PATH.
