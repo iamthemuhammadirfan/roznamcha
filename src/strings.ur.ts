@@ -149,6 +149,11 @@ export const ur = {
     misc: 'متفرق',
   },
   expense: {
+    labour: 'مزدوروں کو دیے',
+    site: 'سائٹ خرچہ',
+    typeAll: 'سب',
+    spendTotal: 'کل خرچہ',
+    labourTapHint: 'مزدور کی ادائیگی پر دبائیں تو اس کا کھاتہ کھلے گا',
     filterToday: 'آج',
     filterWeek: 'یہ ہفتہ',
     filterMonth: 'یہ مہینہ',

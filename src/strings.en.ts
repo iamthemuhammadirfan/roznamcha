@@ -153,6 +153,11 @@ export const en: Strings = {
     misc: 'Miscellaneous',
   },
   expense: {
+    labour: 'Paid to workers',
+    site: 'Site expenses',
+    typeAll: 'All',
+    spendTotal: 'Total spent',
+    labourTapHint: 'Tap a worker payment to open their ledger',
     filterToday: 'Today',
     filterWeek: 'This week',
     filterMonth: 'This month',

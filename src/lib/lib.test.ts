@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { activeOn, coverage, monthWeeks, nextStatus, summarize } from './attendance';
 import { attendanceEarning, computeBalance, reversedIds } from './balance';
-import { summarizeExpenses, summarizeRange } from './expenses';
+import { projectSpend, summarizeExpenses, summarizeRange } from './expenses';
 import { addDays, daysBetween, presetRange, formatDay, formatDayUr, weekday } from './dates';
 import { formatRupees, parseRupees, toWhatsAppNumber } from './money';
 import { makeRefCode } from './ref-code';
@@ -190,5 +190,50 @@ describe('expense date filter', () => {
     expect(presetRange('month', '2026-10-14')).toEqual({ from: '2026-10-01', to: '2026-10-14' });
     expect(presetRange('lastMonth', '2026-10-14')).toEqual({ from: '2026-09-01', to: '2026-09-30' });
     expect(presetRange('lastMonth', '2026-01-10')).toEqual({ from: '2025-12-01', to: '2025-12-31' });
+  });
+});
+
+describe('project spending', () => {
+  const site = (id: string, amount: number, date: string) => ({
+    id,
+    kind: 'expense',
+    amount_paisa: amount,
+    reverses_id: null,
+    date,
+    category_id: 'diesel',
+  });
+  const led = (id: string, kind: string, amount: number, date: string, reverses: string | null = null) => ({
+    id,
+    kind,
+    amount_paisa: amount,
+    reverses_id: reverses,
+    date,
+  });
+  const october = { from: '2026-10-01', to: '2026-10-31' };
+
+  test('adds cash paid to workers to site expenses', () => {
+    const s = projectSpend(
+      [site('e1', 50000, '2026-10-02')],
+      [led('a', 'advance', 300000, '2026-10-03'), led('p', 'payment', 200000, '2026-10-05')],
+      october,
+    );
+    expect(s.labour).toBe(500000);
+    expect(s.site).toBe(50000);
+    expect(s.total).toBe(550000);
+  });
+
+  test('bonuses, deductions and cancelled advances are not spending', () => {
+    const s = projectSpend(
+      [],
+      [
+        led('a', 'advance', 300000, '2026-10-03'),
+        led('x', 'correction', 300000, '2026-10-04', 'a'),
+        led('b', 'bonus', 100000, '2026-10-04'),
+        led('d', 'deduction', 50000, '2026-10-04'),
+        led('p', 'payment', 200000, '2026-09-30'),
+      ],
+      october,
+    );
+    expect(s.labour).toBe(0);
   });
 });

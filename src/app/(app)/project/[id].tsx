@@ -12,8 +12,8 @@ import {
   useProjectExpenses,
 } from '@/db/hooks';
 import { activeOn, coverage } from '@/lib/attendance';
-import { today } from '@/lib/dates';
-import { summarizeExpenses } from '@/lib/expenses';
+import { presetRange, today } from '@/lib/dates';
+import { projectSpend } from '@/lib/expenses';
 import { useSession } from '@/state/session';
 import { isUrdu, t } from '@/i18n';
 import { BalanceChip } from '@/ui/balance-chip';
@@ -33,8 +33,14 @@ export default function ProjectDashboard() {
   const project = useProject(id);
   const assignments = useProjectAssignments(id);
   const attendance = useProjectAttendance(id);
-  const balances = balancesByAssignment(attendance, useProjectEntries(id));
-  const expenses = summarizeExpenses(useProjectExpenses(id), today());
+  const entries = useProjectEntries(id);
+  const balances = balancesByAssignment(attendance, entries);
+  // Spending = cash handed to workers + site expenses, same as the expenses screen.
+  const siteRows = useProjectExpenses(id);
+  const expenses = {
+    month: projectSpend(siteRows, entries, presetRange('month', today())).total,
+    total: projectSpend(siteRows, entries, presetRange('all', today())).total,
+  };
 
   if (!project) return <Empty text={t.project.empty} />;
 

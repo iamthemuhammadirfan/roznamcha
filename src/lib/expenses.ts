@@ -66,3 +66,37 @@ export function summarizeRange(rows: ExpenseLike[], range: DayRange): RangeSumma
 export function inRange(day: string, range: DayRange): boolean {
   return day >= range.from && day <= range.to;
 }
+
+export interface LedgerLike {
+  id: string;
+  kind: string;
+  amount_paisa: number;
+  reverses_id: string | null;
+  date: string;
+}
+
+/**
+ * Cash handed to workers: advances and payments that weren't cancelled. Bonuses and
+ * deductions move a balance but no cash, so they aren't spending.
+ */
+export function labourPayments<E extends LedgerLike>(entries: E[]): E[] {
+  const cancelled = new Set(entries.filter((e) => e.reverses_id).map((e) => e.reverses_id as string));
+  return entries.filter((e) => (e.kind === 'advance' || e.kind === 'payment') && !cancelled.has(e.id));
+}
+
+export interface ProjectSpend {
+  labour: number;
+  site: number;
+  total: number;
+  /** Site expenses per category id. */
+  byCategory: Map<string, number>;
+}
+
+/** Everything spent on a project in a period: cash to workers plus site expenses. */
+export function projectSpend(expenses: ExpenseLike[], ledger: LedgerLike[], range: DayRange): ProjectSpend {
+  const site = summarizeRange(expenses, range);
+  const labour = labourPayments(ledger)
+    .filter((e) => inRange(e.date, range))
+    .reduce((s, e) => s + e.amount_paisa, 0);
+  return { labour, site: site.total, total: labour + site.total, byCategory: site.byCategory };
+}

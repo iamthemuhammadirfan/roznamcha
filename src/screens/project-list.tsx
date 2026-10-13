@@ -14,8 +14,8 @@ import {
 } from '@/db/hooks';
 import type { Project } from '@/db/schema';
 import { activeOn, coverage } from '@/lib/attendance';
-import { formatDay, today, weekday } from '@/lib/dates';
-import { summarizeExpenses } from '@/lib/expenses';
+import { formatDay, presetRange, today, weekday } from '@/lib/dates';
+import { projectSpend } from '@/lib/expenses';
 import { useActiveProject } from '@/state/active-project';
 import { useSession } from '@/state/session';
 import { lang, t } from '@/i18n';
@@ -53,7 +53,8 @@ export function ProjectList() {
   const { projects, loading } = useProjectsLoaded();
   const assignments = useAllAssignments();
   const attendance = useAllAttendance();
-  const balances = balancesByAssignment(attendance, useAllEntries());
+  const entries = useAllEntries();
+  const balances = balancesByAssignment(attendance, entries);
   const expenses = useAllExpenses();
   const [filter, setFilter] = useState<Filter>('open');
   const [q, setQ] = useState('');
@@ -63,16 +64,19 @@ export function ProjectList() {
 
   const summary = (pid: string): SiteSummary => {
     const mine = assignments.filter((a) => a.project_id === pid);
+    const assignmentIds = new Set(mine.map((a) => a.id));
     const expected = mine.filter((a) => activeOn(a, day));
     return {
       workers: mine.filter((a) => a.is_active).length,
       outstanding: mine.reduce((sum, a) => sum + (balances.get(a.id)?.balance ?? 0), 0),
       expected: expected.length,
       marked: expected.filter((a) => markedToday.has(a.id)).length,
-      spentThisMonth: summarizeExpenses(
+      // Cash to workers + site expenses this month, same as the project's expenses screen.
+      spentThisMonth: projectSpend(
         expenses.filter((e) => e.project_id === pid),
-        day,
-      ).month,
+        entries.filter((e) => assignmentIds.has(e.assignment_id)),
+        presetRange('month', day),
+      ).total,
     };
   };
 
