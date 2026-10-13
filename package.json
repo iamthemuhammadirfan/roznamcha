@@ -52,7 +52,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "build:dev": "eas build -p android --profile development",
-    "build:apk": "eas build -p android --profile production"
+    "build:apk": "eas build -p android --profile production",
+    "emulator": "emulator -avd ${AVD:-Pixel10} -no-snapshot-save -no-boot-anim",
+    "e2e": "maestro test .maestro --test-output-dir=.maestro/out",
+    "logs": "adb logcat --pid=$(adb shell pidof -s io.github.iamthemuhammadirfan.roznamcha) ReactNativeJS:V AndroidRuntime:E *:W"
   },
   "private": true
 }

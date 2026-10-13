@@ -1,0 +1,9 @@
+# Cold-launch the dev build and capture the first screen.
+# Run: bun run e2e   (needs a booted emulator with the dev build installed)
+appId: io.github.iamthemuhammadirfan.roznamcha
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 15000
+- takeScreenshot: smoke
