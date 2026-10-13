@@ -12,6 +12,11 @@
     "@powersync/react-native": "^2.3.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@supabase/supabase-js": "^2.117.1",
+    "@tamagui/alert-dialog": "^3.0.7",
+    "@tamagui/animations-reanimated": "^3.0.7",
+    "@tamagui/core": "^3.0.7",
+    "@tamagui/input": "^3.0.7",
+    "@tamagui/portal": "^3.0.7",
     "drizzle-orm": "^0.45.3",
     "expo": "~57.0.26",
     "expo-constants": "~57.0.20",
@@ -52,10 +57,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
     "build:dev": "eas build -p android --profile development",
-    "build:apk": "eas build -p android --profile production",
-    "emulator": "emulator -avd ${AVD:-Pixel10} -no-snapshot-save -no-boot-anim",
-    "e2e": "maestro test .maestro --test-output-dir=.maestro/out",
-    "logs": "adb logcat --pid=$(adb shell pidof -s io.github.iamthemuhammadirfan.roznamcha) ReactNativeJS:V AndroidRuntime:E *:W"
+    "build:apk": "eas build -p android --profile production"
   },
   "private": true
 }

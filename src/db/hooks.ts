@@ -138,6 +138,14 @@ export function useTrades() {
   return useLive<typeof trade.$inferSelect>(db.select().from(trade).orderBy(asc(trade.created_at), asc(trade.name)));
 }
 
+/** Workers per trade name, counted in SQLite rather than by loading every worker. */
+export function useTradeWorkerCounts(): Map<string, number> {
+  const rows = useQuery<{ trade: string; n: number }>(
+    "SELECT trade, count(*) AS n FROM worker WHERE trade IS NOT NULL AND trade != '' GROUP BY trade",
+  ).data;
+  return new Map(rows.map((r) => [r.trade, r.n]));
+}
+
 export type AssignmentWithProject = typeof assignment.$inferSelect & {
   project_code: string;
   project_name: string;

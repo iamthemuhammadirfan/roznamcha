@@ -1,10 +1,11 @@
+// Built with Tamagui (Settings only).
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { View } from '@tamagui/core';
 
-import { isUrdu } from '@/i18n';
-
-import { T } from './text';
-import { colors, fonts, space } from './theme';
+import { ListInput } from './list-group';
+import { XStack, YStack } from './tamagui.config';
+import { Text } from './tamagui-text';
+import { colors } from './theme';
 
 /**
  * Type a name, tap plus — for short owner-managed lists (trades, expense types). Lives in
@@ -29,55 +30,38 @@ export function AddBar({
 }) {
   const empty = !value.trim() || Boolean(blocked);
   return (
-    <View style={{ gap: space.xs }}>
+    <YStack gap="xs">
       {blocked ? (
-        <T variant="small" style={{ color: colors.pending, paddingHorizontal: space.md }}>
+        <Text variant="small" color="pending" paddingHorizontal="md">
           {blocked}
-        </T>
+        </Text>
       ) : null}
-      <View style={styles.bar}>
-        <TextInput
+      <XStack alignItems="center" gap="sm">
+        <ListInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={colors.muted}
+          placeholderTextColor="muted"
           onSubmitEditing={() => !empty && onAdd()}
           returnKeyType="done"
-          style={styles.input}
+          minHeight={56}
+          borderRadius="round"
         />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={addLabel}
+        <View
+          role="button"
+          aria-label={addLabel}
           disabled={empty}
           onPress={onAdd}
-          style={[styles.add, empty && { opacity: 0.4 }]}>
+          width={56}
+          height={56}
+          borderRadius="round"
+          alignItems="center"
+          justifyContent="center"
+          opacity={empty ? 0.4 : 1}
+          backgroundColor={{ default: 'brand', press: 'siteInk' }}>
           <MaterialCommunityIcons name="plus" size={30} color={colors.white} />
-        </Pressable>
-      </View>
-    </View>
+        </View>
+      </XStack>
+    </YStack>
   );
 }
-
-const styles = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  input: {
-    flex: 1,
-    minHeight: 56,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingHorizontal: space.lg,
-    fontFamily: isUrdu ? fonts.urdu : fonts.latin,
-    fontSize: 18,
-    color: colors.text,
-  },
-  add: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
