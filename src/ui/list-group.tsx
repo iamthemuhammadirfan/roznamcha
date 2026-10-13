@@ -1,57 +1,122 @@
-// Compact rows in one rounded container with dividers — for short owner-managed lists
-// (trades, expense types) where a card per item wasted most of the screen.
+// Full-width rows for the short owner-managed lists Settings opens (trades, expense
+// types): a name, how much it's used, and icon actions.
+// Built with Tamagui (Settings only).
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Children, type ComponentProps, Fragment, type ReactNode } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { styled, View } from '@tamagui/core';
+import { Input } from '@tamagui/input';
+import { type ComponentProps, type ReactNode } from 'react';
+import { StyleSheet } from 'react-native';
+import Animated, { type SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 
 import { isUrdu } from '@/i18n';
 
-import { T } from './text';
-import { colors, fonts, space } from './theme';
+import { XStack, YStack } from './tamagui.config';
+import { Digits, Text } from './tamagui-text';
+import { colors, TOUCH_MIN } from './theme';
 
-export function ListGroup({ title, children }: { title?: string; children: ReactNode }) {
-  const rows = Children.toArray(children);
-  if (rows.length === 0) return null;
+const Divider = styled(View, {
+  height: StyleSheet.hairlineWidth,
+  backgroundColor: 'border',
+  marginStart: 'lg',
+});
+
+const RowFrame = styled(XStack, {
+  minHeight: TOUCH_MIN,
+  alignItems: 'center',
+  gap: 'sm',
+  paddingStart: 'lg',
+  paddingEnd: 'sm',
+  paddingVertical: 'xs',
+});
+
+/** A text box in the app's font: the rename box here, and the add bar's. */
+export const ListInput = styled(Input, {
+  flex: 1,
+  minHeight: 52,
+  borderWidth: 1,
+  borderColor: 'border',
+  backgroundColor: 'card',
+  paddingHorizontal: 'lg',
+  fontFamily: 'body',
+  fontSize: 18,
+  color: 'text',
+});
+
+/** A small title above a run of rows, e.g. hidden types. */
+export function SectionTitle({ title }: { title: string }) {
   return (
-    <View style={{ gap: space.xs }}>
-      {title ? (
-        <T variant="small" style={{ paddingHorizontal: space.sm }}>
-          {title}
-        </T>
-      ) : null}
-      <View style={styles.group}>
-        {rows.map((row, i) => (
-          <Fragment key={i}>
-            {i > 0 ? <View style={styles.divider} /> : null}
-            {row}
-          </Fragment>
-        ))}
-      </View>
+    <Text variant="small" paddingHorizontal="lg" paddingTop="lg">
+      {title}
+    </Text>
+  );
+}
+
+/**
+ * How much of the whole this row carries — workers in a trade, expenses of a type — as a
+ * thin bar under its name. Grows in from the reading side as `sweep` goes 0 → 1; every
+ * row shares one sweep, so it is one animation however long the list.
+ */
+function Meter({ share, sweep }: { share: number; sweep: SharedValue<number> }) {
+  const grow = useAnimatedStyle(() => ({ transform: [{ scaleX: sweep.get() }] }));
+  return (
+    <View height={4} borderRadius="round" backgroundColor="brandSoft" overflow="hidden">
+      <Animated.View
+        style={[
+          {
+            height: '100%',
+            width: `${Math.round(share * 100)}%`,
+            borderRadius: 999,
+            backgroundColor: colors.brand,
+            // transformOrigin is physical, and forced RTL doesn't mirror it.
+            transformOrigin: isUrdu ? 'right' : 'left',
+          },
+          grow,
+        ]}
+      />
     </View>
   );
 }
 
-/** A name, an optional detail at the end, then icon actions. */
+/** A name, its count and share meter, then icon actions. */
 export function ListRow({
   label,
-  detail,
+  count,
   muted,
+  divider,
   children,
 }: {
   label: string;
-  detail?: ReactNode;
+  /** How many use this, of how many in all, and what they are ("workers"). */
+  count?: { n: number; max: number; unit: string; sweep: SharedValue<number> };
   muted?: boolean;
+  /** A divider above: every row but the first of its run. */
+  divider?: boolean;
   /** IconActions. */
   children?: ReactNode;
 }) {
   return (
-    <View style={styles.row}>
-      <T variant="bodyBold" style={{ flex: 1, color: muted ? colors.muted : colors.text }}>
-        {label}
-      </T>
-      {detail}
-      {children}
-    </View>
+    <YStack>
+      {divider ? <Divider /> : null}
+      <RowFrame>
+        <YStack flex={1} gap="xs" paddingVertical="xs">
+          <XStack alignItems="center" gap="sm">
+            <Text variant="bodyBold" flex={1} color={muted ? 'muted' : 'text'}>
+              {label}
+            </Text>
+            {count && count.n > 0 ? (
+              <XStack alignItems="center" gap="xs">
+                <Digits bold color={muted ? 'muted' : 'brand'}>
+                  {count.n}
+                </Digits>
+                <Text variant="small">{count.unit}</Text>
+              </XStack>
+            ) : null}
+          </XStack>
+          {count ? <Meter share={count.max > 0 ? count.n / count.max : 0} sweep={count.sweep} /> : null}
+        </YStack>
+        {children}
+      </RowFrame>
+    </YStack>
   );
 }
 
@@ -69,21 +134,22 @@ export function IconAction({
   tone?: 'brand' | 'danger';
   disabled?: boolean;
 }) {
-  const fg = tone === 'danger' ? colors.recover : colors.brand;
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
+    <View
+      role="button"
+      aria-label={label}
       disabled={disabled}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => [
-        styles.action,
-        pressed && { backgroundColor: colors.brandSoft },
-        disabled && { opacity: 0.35 },
-      ]}>
-      <MaterialCommunityIcons name={icon} size={22} color={fg} />
-    </Pressable>
+      width={44}
+      height={44}
+      borderRadius="round"
+      alignItems="center"
+      justifyContent="center"
+      opacity={disabled ? 0.35 : 1}
+      backgroundColor={{ default: 'transparent', press: 'brandSoft' }}>
+      <MaterialCommunityIcons name={icon} size={22} color={tone === 'danger' ? colors.recover : colors.brand} />
+    </View>
   );
 }
 
@@ -95,7 +161,9 @@ export function EditRow({
   onCancel,
   saveLabel,
   cancelLabel,
+  divider,
 }: {
+  divider?: boolean;
   value: string;
   onChangeText: (v: string) => void;
   onSave: () => void;
@@ -104,51 +172,21 @@ export function EditRow({
   cancelLabel: string;
 }) {
   return (
-    <View style={[styles.row, styles.editing]}>
-      <TextInput
+    <YStack>
+      {divider ? <Divider /> : null}
+    <RowFrame backgroundColor="brandSoft" paddingStart="md">
+      <ListInput
         value={value}
         onChangeText={onChangeText}
         onSubmitEditing={onSave}
         returnKeyType="done"
         autoFocus
-        style={styles.input}
+        borderRadius="sm"
+        borderColor="brand"
       />
       <IconAction icon="check" label={saveLabel} onPress={onSave} disabled={!value.trim()} />
       <IconAction icon="close" label={cancelLabel} onPress={onCancel} />
-    </View>
+    </RowFrame>
+    </YStack>
   );
 }
-
-const styles = StyleSheet.create({
-  editing: { backgroundColor: colors.brandSoft, paddingStart: space.md },
-  input: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.brand,
-    backgroundColor: colors.card,
-    paddingHorizontal: space.md,
-    fontFamily: isUrdu ? fonts.urdu : fonts.latin,
-    fontSize: 18,
-    color: colors.text,
-  },
-  group: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginStart: space.lg },
-  row: {
-    minHeight: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    paddingStart: space.lg,
-    paddingEnd: space.sm,
-    paddingVertical: space.xs,
-  },
-  action: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-});

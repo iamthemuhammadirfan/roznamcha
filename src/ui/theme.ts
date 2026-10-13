@@ -17,6 +17,9 @@ export const colors = {
   // project number plate and the stripe — never for text on the page background.
   site: '#F2B300',
   siteInk: '#262421',
+  // The beam of a laser level, drawn on site green. Means "all saved"; only for the
+  // status line on the site pass.
+  laser: '#5BE38C',
 };
 
 export const fonts = {

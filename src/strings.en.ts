@@ -69,6 +69,7 @@ export const en: Strings = {
   },
   list: {
     searchOrAdd: 'Search or add new',
+    inList: 'in the list',
     noMatch: 'No match. Tap the add button below to add it.',
     exists: 'This already exists',
   },

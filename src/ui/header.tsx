@@ -66,6 +66,8 @@ interface HeaderProps {
 
 export function AppHeader({ navigation, options, back }: HeaderProps) {
   const insets = useSafeAreaInsets();
+  // Settings shows the full sync status on screen; the badge would only repeat it.
+  const showSync = usePathname() !== '/settings';
   const title =
     typeof options.headerTitle === 'function'
       ? options.headerTitle({ children: options.title ?? '', tintColor: colors.white })
@@ -85,7 +87,7 @@ export function AppHeader({ navigation, options, back }: HeaderProps) {
           </Pressable>
         ) : null}
         <View style={{ flex: 1 }}>{title}</View>
-        <SyncBadge />
+        {showSync ? <SyncBadge /> : null}
       </View>
       <UpdateStrip />
     </View>

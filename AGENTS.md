@@ -52,9 +52,10 @@ Docs: https://docs.expo.dev/eas/index.md
 
 ## Device testing (Android emulator + Maestro)
 
-- `bun run emulator` boots the AVD (`Pixel10` by default, override with `AVD=<name>`). Then use `bun run start` for the dev client, or `bun run android` to build and install it.
+- These helpers live in `scripts/`, not `package.json` "scripts", and Maestro's ignore rule lives in `.maestro/.gitignore`, not the root `.gitignore`: both root files are part of the runtime fingerprint, and changing them stops OTA updates reaching installed APKs. Before an `eas update`, check `bunx eas-cli fingerprint:compare <production runtime>` matches.
+- `./scripts/emulator.sh` boots the AVD (`Pixel10` by default, override with `AVD=<name>`). Then use `bun run start` for the dev client, or `bun run android` to build and install it.
 - The `maestro` MCP server in `.mcp.json` lets agents tap, type, read the view hierarchy and take screenshots on the running emulator. Prefer it over raw `adb` for UI checks.
-- `bun run logs` streams the running app's JS logs (`ReactNativeJS`), crashes and warnings. When testing a scenario, run `adb logcat -c` first, then read logs afterwards with `adb logcat -d ReactNativeJS:V AndroidRuntime:E *:S`. Filter by tag, not `--pid`: a crash or relaunch changes the process id, so the crash would be filtered out.
-- Flows live in `.maestro/*.yaml` and run with `bun run e2e`. Output and screenshots go to `.maestro/out/`, which is gitignored. App id: `io.github.iamthemuhammadirfan.roznamcha`.
+- `./scripts/logs.sh` streams the running app's JS logs (`ReactNativeJS`), crashes and warnings. When testing a scenario, run `adb logcat -c` first, then read logs afterwards with `adb logcat -d ReactNativeJS:V AndroidRuntime:E *:S`. Filter by tag, not `--pid`: a crash or relaunch changes the process id, so the crash would be filtered out.
+- Flows live in `.maestro/*.yaml` and run with `./scripts/e2e.sh`. Output and screenshots go to `.maestro/out/`, which is gitignored. App id: `io.github.iamthemuhammadirfan.roznamcha`.
 - Use Maestro selectors that match the visible Urdu/English text or a `testID`. Don't rely on screen coordinates, because the layout is RTL in Urdu.
 - Install Maestro with `curl -fsSL https://get.maestro.mobile.dev | bash`. It needs Java 17+ and `~/.maestro/bin` on PATH.

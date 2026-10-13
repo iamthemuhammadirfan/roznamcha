@@ -1,0 +1,3 @@
+# Maestro output. Ignored here, not in the root .gitignore: that file is part of the
+# runtime fingerprint, so editing it stops over-the-air updates reaching the APK.
+out/
