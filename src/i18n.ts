@@ -67,15 +67,21 @@ export function entryKindLabel(kind: string, s: Strings = t): string {
   return (ENTRY_KINDS as readonly string[]).includes(kind) ? s.entry[kind as (typeof ENTRY_KINDS)[number]] : kind;
 }
 
-// Trades are stored in the database as their Urdu word, so existing rows and both
-// languages agree; English only changes how they're shown.
+// A worker's trade is stored as the trade's name. The built-in trades are Urdu words, so
+// English only changes how those are shown; a trade the owner added shows as typed.
 const TRADE_KEYS = ['mason', 'labourer', 'carpenter', 'steelFixer', 'electrician', 'plumber', 'painter'] as const;
-
-/** The stored value for each trade (the Urdu word). */
-export const tradeOptions: string[] = TRADE_KEYS.map((k) => ur.trade[k]);
 
 export function tradeLabel(stored: string | null | undefined): string {
   if (!stored) return '';
   const key = TRADE_KEYS.find((k) => ur.trade[k] === stored);
   return key ? t.trade[key] : stored;
+}
+
+// Same idea for the expense categories every business starts with.
+const EXPENSE_CATEGORY_KEYS = ['fuel', 'chai', 'material', 'transport', 'misc'] as const;
+
+export function expenseCategoryLabel(stored: string | null | undefined): string {
+  if (!stored) return '';
+  const key = EXPENSE_CATEGORY_KEYS.find((k) => ur.expenseCategory[k] === stored);
+  return key ? t.expenseCategory[key] : stored;
 }

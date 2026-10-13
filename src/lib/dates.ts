@@ -71,3 +71,24 @@ export function weekdaysShort(lang: 'ur' | 'en'): string[] {
   const names = lang === 'ur' ? WEEKDAYS_UR : WEEKDAYS_EN.map((d) => d.slice(0, 3));
   return [...names.slice(1), names[0]];
 }
+
+export type RangePreset = 'today' | 'week' | 'month' | 'lastMonth' | 'all';
+
+/** The inclusive day range a preset covers, counted from `day`. Weeks start on Monday. */
+export function presetRange(preset: RangePreset, day: Day): { from: Day; to: Day } {
+  const [y, m] = day.split('-').map(Number);
+  switch (preset) {
+    case 'today':
+      return { from: day, to: day };
+    case 'week':
+      return { from: addDays(day, -((parse(day).getDay() + 6) % 7)), to: day };
+    case 'month':
+      return { from: `${day.slice(0, 7)}-01`, to: day };
+    case 'lastMonth': {
+      const first = toDay(new Date(y, m - 2, 1));
+      return { from: first, to: toDay(new Date(y, m - 1, 0)) };
+    }
+    case 'all':
+      return { from: '0000-01-01', to: '9999-12-31' };
+  }
+}

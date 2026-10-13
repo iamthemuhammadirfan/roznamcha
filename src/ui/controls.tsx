@@ -1,4 +1,5 @@
-import { type ReactNode } from 'react';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { type ComponentProps, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,10 +15,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { isUrdu } from '@/i18n';
 
+import { useKeyboardHeight } from './keyboard';
 import { Num, T } from './text';
 import { colors, fonts, space, TOUCH_MIN } from './theme';
 
-export function Screen({ children, scroll = true }: { children: ReactNode; scroll?: boolean }) {
+/**
+ * A screen's scrolling content, plus an optional `footer` pinned to the bottom edge —
+ * where every screen keeps its main add / save action, so the thumb always finds it in
+ * the same place and it never scrolls away.
+ */
+export function Screen({ children, scroll = true, footer }: { children: ReactNode; scroll?: boolean; footer?: ReactNode }) {
+  if (footer) return <FooterScreen footer={footer}>{children}</FooterScreen>;
   if (!scroll) {
     return (
       <SafeAreaView edges={['bottom']} style={styles.screen}>
@@ -34,15 +42,37 @@ export function Screen({ children, scroll = true }: { children: ReactNode; scrol
   );
 }
 
+function FooterScreen({ children, footer }: { children: ReactNode; footer: ReactNode }) {
+  const keyboard = useKeyboardHeight();
+  return (
+    // Lift the footer by the keyboard's height; the bottom inset it replaces is already
+    // part of what the keyboard covers.
+    <SafeAreaView edges={['bottom']} style={[styles.screen, keyboard > 0 && { paddingBottom: keyboard }]}>
+      <ScrollView contentContainerStyle={styles.screenPad} keyboardShouldPersistTaps="handled">
+        {children}
+      </ScrollView>
+      <View style={styles.footer}>{footer}</View>
+    </SafeAreaView>
+  );
+}
+
 type ButtonKind = 'primary' | 'secondary' | 'danger';
 
 export function Button({
   label,
   kind = 'primary',
   busy,
+  icon,
   style,
   ...rest
-}: Omit<PressableProps, 'style'> & { label: string; kind?: ButtonKind; busy?: boolean; style?: ViewStyle }) {
+}: Omit<PressableProps, 'style'> & {
+  label: string;
+  kind?: ButtonKind;
+  busy?: boolean;
+  /** Shown before the label, e.g. a plus on an add button. */
+  icon?: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  style?: ViewStyle;
+}) {
   const bg = kind === 'primary' ? colors.brand : kind === 'danger' ? colors.recover : colors.card;
   const fg = kind === 'secondary' ? colors.brand : colors.white;
   return (
@@ -56,7 +86,18 @@ export function Button({
         style,
       ]}
       {...rest}>
-      {busy ? <ActivityIndicator color={fg} /> : (
+      {busy ? (
+        <ActivityIndicator color={fg} />
+      ) : icon ? (
+        <View style={styles.buttonRow}>
+          <MaterialCommunityIcons name={icon} size={26} color={fg} />
+          {/* Fills the rest of the row: shrink-wrapped Nastaliq gets its last word dropped. */}
+          <T variant="h2" style={{ color: fg, flex: 1, textAlign: 'center' }}>
+            {label}
+          </T>
+          <View style={{ width: 26 }} />
+        </View>
+      ) : (
         // Full-width, centred label: Android mis-measures custom-font text shrink-wrapped
         // inside a centred row and drops the last word ("نیا مزدور" rendered as "نیا").
         <T variant="h2" style={{ color: fg, alignSelf: 'stretch', textAlign: 'center' }}>
@@ -142,7 +183,8 @@ export function Phone({ value }: { value: string | null }) {
 export function Empty({ text }: { text: string }) {
   return (
     <View style={styles.empty}>
-      <T style={{ color: colors.muted, textAlign: 'center' }}>{text}</T>
+      {/* Stretched: shrink-wrapped Nastaliq gets its last word dropped on Android. */}
+      <T style={{ color: colors.muted, textAlign: 'center', alignSelf: 'stretch' }}>{text}</T>
     </View>
   );
 }
@@ -170,6 +212,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   buttonOutline: { borderWidth: 2, borderColor: colors.brand },
+  buttonRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', gap: space.sm },
+  footer: {
+    gap: space.sm,
+    padding: space.lg,
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
   field: { gap: space.xs },
   input: {
     minHeight: 56,

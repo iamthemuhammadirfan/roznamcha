@@ -1,14 +1,16 @@
 import { useStatus } from '@powersync/react-native';
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import { usePendingUploadCount } from '@/db/hooks';
 import { useMember, useSession } from '@/state/session';
 import { lang, type Lang, setLanguage, t } from '@/i18n';
-import { Banner, Button, Card, Choice, Row, Screen } from '@/ui/controls';
+import { Banner, Row, Screen } from '@/ui/controls';
+import { SettingsRow, SettingsSection } from '@/ui/settings-list';
 import { Num, T } from '@/ui/text';
-import { colors } from '@/ui/theme';
+import { colors, space } from '@/ui/theme';
 
 // Each language is named in itself, so someone who can't read the current UI can still
 // find theirs.
@@ -23,6 +25,7 @@ export default function Settings() {
   const status = useStatus();
   const pending = usePendingUploadCount();
   const { isUpdatePending } = Updates.useUpdates();
+  const isOwner = member.role === 'owner';
 
   function confirmSignOut() {
     Alert.alert(t.auth.signOut, t.auth.signOutConfirm, [
@@ -31,54 +34,115 @@ export default function Settings() {
     ]);
   }
 
+  function chooseLanguage() {
+    Alert.alert(t.settings.language, t.settings.languageHelp, [
+      ...LANGUAGES.filter((l) => l.value !== lang).map((l) => ({ text: l.label, onPress: () => setLanguage(l.value) })),
+      { text: t.action.cancel, style: 'cancel' as const },
+    ]);
+  }
+
+  const syncDetail = !status.hasSynced ? t.sync.firstSync : status.connected ? t.sync.synced : t.sync.offline;
+
   return (
     <Screen>
       {localMode ? <Banner text={t.app.localMode} /> : null}
-      <Card>
-        <T variant="small">{t.settings.language}</T>
-        <Choice options={LANGUAGES} value={lang} onChange={(next) => next !== lang && setLanguage(next)} />
-        <T variant="small">{t.settings.languageHelp}</T>
-      </Card>
 
-      <Card>
-        <T variant="small">{t.settings.business}</T>
-        <T variant="h2">{member.businessName}</T>
-        <T variant="small">{t.settings.account}</T>
-        <Row>
-          {member.email ? <Num>{member.email}</Num> : null}
-          <T variant="bodyBold">{t.role[member.role]}</T>
+      <View style={styles.identity}>
+        <T variant="h1" style={{ color: colors.white }}>
+          {member.businessName}
+        </T>
+        <Row style={{ flexWrap: 'wrap' }}>
+          <View style={styles.role}>
+            <T variant="small" style={{ color: colors.brand }}>
+              {t.role[member.role]}
+            </T>
+          </View>
+          {member.email ? <Num style={{ color: colors.brandSoft, fontSize: 15 }}>{member.email}</Num> : null}
         </Row>
-      </Card>
+      </View>
 
-      {!localMode ? (
-        <Card>
-          <T variant="small">{t.settings.sync}</T>
-          <T variant="bodyBold">{status.connected ? t.sync.synced : t.sync.offline}</T>
-          <Row>
-            <Num bold>{pending}</Num>
-            <T>{t.sync.pending}</T>
-          </Row>
-          {!status.hasSynced ? <T variant="small">{t.sync.firstSync}</T> : null}
-          {/* Shown in Urdu-agnostic form on purpose: this is for whoever is debugging. */}
-          {status.downloadError ? (
-            <Num style={{ fontSize: 12, color: colors.recover }}>{`download: ${status.downloadError.message}`}</Num>
-          ) : null}
-          {status.uploadError ? (
-            <Num style={{ fontSize: 12, color: colors.recover }}>{`upload: ${status.uploadError.message}`}</Num>
-          ) : null}
-        </Card>
+      {isOwner ? (
+        <SettingsSection title={t.settings.lists}>
+          <SettingsRow icon="hammer-wrench" label={t.trades.title} onPress={() => router.push('/trades')} />
+          <SettingsRow
+            icon="receipt-text-outline"
+            label={t.expense.categories}
+            onPress={() => router.push('/expense-categories')}
+          />
+        </SettingsSection>
       ) : null}
 
-      <Card>
-        <T variant="small">{t.settings.version}</T>
-        <Row>
-          <Num>{Constants.expoConfig?.version}</Num>
-          {Updates.updateId ? <Num style={{ fontSize: 12 }}>{Updates.updateId.slice(0, 8)}</Num> : null}
-        </Row>
-        {isUpdatePending ? <Button label={t.settings.restart} onPress={() => Updates.reloadAsync()} /> : null}
-      </Card>
+      <SettingsSection title={t.settings.app}>
+        <SettingsRow
+          icon="translate"
+          label={t.settings.language}
+          value={LANGUAGES.find((l) => l.value === lang)?.label}
+          onPress={chooseLanguage}
+        />
+        {!localMode ? (
+          <SettingsRow
+            icon={status.connected ? 'cloud-check-outline' : 'cloud-off-outline'}
+            label={t.settings.sync}
+            detail={syncDetail}
+            value={
+              pending > 0 ? (
+                <Row style={{ gap: space.xs }}>
+                  <Num bold style={{ color: colors.pending }}>
+                    {pending}
+                  </Num>
+                  <T variant="small" style={{ color: colors.pending }}>
+                    {t.sync.pending}
+                  </T>
+                </Row>
+              ) : undefined
+            }
+          />
+        ) : null}
+        <SettingsRow
+          icon="information-outline"
+          label={t.settings.version}
+          value={<Num style={{ color: colors.muted }}>{Constants.expoConfig?.version}</Num>}
+          detail={Updates.updateId ? <Num style={styles.debug}>{Updates.updateId.slice(0, 8)}</Num> : undefined}
+        />
+        {isUpdatePending ? (
+          <SettingsRow
+            icon="restart"
+            label={t.settings.restart}
+            detail={t.settings.updateReady}
+            onPress={() => Updates.reloadAsync()}
+          />
+        ) : null}
+      </SettingsSection>
 
-      {!localMode ? <Button label={t.auth.signOut} kind="danger" onPress={confirmSignOut} /> : null}
+      {/* Shown in Urdu-agnostic form on purpose: this is for whoever is debugging. */}
+      {!localMode && status.downloadError ? (
+        <Num style={styles.error}>{`download: ${status.downloadError.message}`}</Num>
+      ) : null}
+      {!localMode && status.uploadError ? (
+        <Num style={styles.error}>{`upload: ${status.uploadError.message}`}</Num>
+      ) : null}
+
+      {!localMode ? (
+        <SettingsSection>
+          <SettingsRow icon="logout" label={t.auth.signOut} tone="danger" onPress={confirmSignOut} />
+        </SettingsSection>
+      ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  identity: {
+    backgroundColor: colors.brand,
+    borderRadius: 16,
+    padding: space.lg,
+    gap: space.sm,
+  },
+  role: {
+    backgroundColor: colors.brandSoft,
+    borderRadius: 999,
+    paddingHorizontal: space.md,
+  },
+  debug: { fontSize: 12, color: colors.muted },
+  error: { fontSize: 12, color: colors.recover, paddingHorizontal: space.sm },
+});

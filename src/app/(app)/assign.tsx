@@ -2,12 +2,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import { useProject, useWorker } from '@/db/hooks';
-import { activeAssignment, assignWorker } from '@/db/mutations';
+import { activeAssignment, assignWorker, startDateProblem } from '@/db/mutations';
+import { today } from '@/lib/dates';
 import { parseRupees } from '@/lib/money';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
 import { t } from '@/i18n';
 import { Banner, Button, Card, Field, Row, Screen } from '@/ui/controls';
+import { DateField } from '@/ui/date-field';
 import { Num, T } from '@/ui/text';
 import { colors } from '@/ui/theme';
 
@@ -20,6 +22,8 @@ export default function Assign() {
   const ctx = useWriteContext();
   const { role } = useMember();
   const [rate, setRate] = useState('');
+  // A worker is often entered after they've already been on site for a while.
+  const [startedOn, setStartedOn] = useState(today());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -28,13 +32,17 @@ export default function Assign() {
     if (!paisa) return setError(t.assignment.rateRequired);
     if (!projectId) return;
     if (await activeAssignment(workerId, projectId)) return setError(t.assignment.alreadyOn);
+    const problem = await startDateProblem(workerId, projectId, startedOn);
+    if (problem === 'future') return setError(t.assignment.futureStart);
+    if (problem === 'taken') return setError(t.assignment.startTaken);
     setBusy(true);
-    await assignWorker(ctx, workerId, projectId, paisa);
+    await assignWorker(ctx, workerId, projectId, paisa, startedOn);
     router.dismissTo('/project-workers');
   }
 
   return (
-    <Screen>
+    <Screen
+      footer={role === 'owner' ? <Button icon="account-plus-outline" label={t.assignment.save} onPress={save} busy={busy} /> : undefined}>
       <Card>
         <T variant="h1">{worker?.name_ur}</T>
         {worker?.father_name ? (
@@ -56,7 +64,8 @@ export default function Assign() {
         <>
           {error ? <Banner tone="recover" text={error} /> : null}
           <Field label={t.assignment.rate} value={rate} onChangeText={setRate} numeric autoFocus />
-          <Button label={t.assignment.save} onPress={save} busy={busy} />
+          <DateField label={t.assignment.startLabel} value={startedOn} onChange={setStartedOn} />
+          {startedOn < today() ? <Banner tone="brand" text={t.assignment.backdatedHelp} /> : null}
         </>
       )}
     </Screen>

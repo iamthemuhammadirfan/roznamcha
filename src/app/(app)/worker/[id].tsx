@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { type ComponentProps, useState } from 'react';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   type AssignmentWithProject,
@@ -10,7 +11,7 @@ import {
   useWorkerAttendance,
   useWorkerEntries,
 } from '@/db/hooks';
-import { changeRate, endAssignment, reverseEntry } from '@/db/mutations';
+import { changeRate, changeStartDate, endAssignment, reverseEntry, startDateProblem } from '@/db/mutations';
 import type { Attendance, LedgerEntry } from '@/db/schema';
 import { summarize } from '@/lib/attendance';
 import { entryEffects, reversedIds } from '@/lib/balance';
@@ -21,7 +22,10 @@ import { useMember, useWriteContext } from '@/state/session';
 import { entryKindLabel, lang, t, tradeLabel } from '@/i18n';
 import { StatusCount } from '@/ui/attendance';
 import { BalanceChip } from '@/ui/balance-chip';
-import { Button, Card, Empty, Field, Phone, Row, Screen } from '@/ui/controls';
+import { Banner, Button, Card, Empty, Field, Row, Screen } from '@/ui/controls';
+import { DateField } from '@/ui/date-field';
+import { CodePlate, SiteBoard } from '@/ui/site-board';
+import { WorkerAvatar } from '@/ui/worker-avatar';
 import { Money, Num, T } from '@/ui/text';
 import { colors, space } from '@/ui/theme';
 
@@ -105,6 +109,28 @@ function ProjectBlock({
     ]);
   }
 
+  const [startError, setStartError] = useState<string | null>(null);
+
+  async function pickStart(day: string) {
+    if (day === a.started_on) return;
+    const problem = await startDateProblem(a.worker_id, a.project_id, day, a.id);
+    if (problem) {
+      setStartError(
+        problem === 'future'
+          ? t.assignment.futureStart
+          : problem === 'taken'
+            ? t.assignment.startTaken
+            : t.assignment.startAfterAttendance,
+      );
+      return;
+    }
+    setStartError(null);
+    Alert.alert(t.assignment.changeStart, t.assignment.changeStartConfirm, [
+      { text: t.action.cancel, style: 'cancel' },
+      { text: t.action.confirm, onPress: () => changeStartDate(a.id, day) },
+    ]);
+  }
+
   function newEntry() {
     // The entry screen is scoped to the active project; switch explicitly so the header
     // shows which project this money is going against.
@@ -120,70 +146,122 @@ function ProjectBlock({
   }
 
   return (
-    <Card style={{ gap: space.md }}>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Row>
-          <Num bold style={{ fontSize: 24, lineHeight: 36, color: colors.brand }}>
-            {a.project_code}
-          </Num>
-          <T variant="h2">{a.project_name}</T>
+    // Each project block wears its site board, so 489's money is never mistaken for 544's.
+    <SiteBoard muted={!a.is_active} style={{ gap: 0 }}>
+      <View style={{ gap: space.md }}>
+        <Row style={{ alignItems: 'flex-start' }}>
+          <CodePlate code={a.project_code} />
+          <View style={{ flex: 1 }}>
+            <T variant="h2">{a.project_name}</T>
+            {!a.is_active ? <T variant="small">{t.assignment.ended}</T> : null}
+          </View>
         </Row>
-        {!a.is_active ? <T variant="small">{t.assignment.ended}</T> : null}
-      </Row>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Row>
-          <T variant="small">{t.worker.rate}</T>
-          <Money paisa={a.daily_rate_paisa} size={15} color={colors.muted} />
-        </Row>
-        {earned > 0 ? (
-          <Row>
+        <BalanceChip paisa={balance} size={22} />
+        <View style={styles.stats}>
+          <View style={styles.stat}>
+            <T variant="small">{t.worker.rate}</T>
+            <Money paisa={a.daily_rate_paisa} size={16} />
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.stat}>
             <T variant="small">{t.ledger.earned}</T>
-            <Money paisa={earned} size={15} color={colors.muted} />
+            <Money paisa={earned} size={16} />
+          </View>
+        </View>
+        {days.length > 0 ? (
+          // Earnings come from these days: a half day pays half the daily wage, absent pays nothing.
+          <Row style={{ flexWrap: 'wrap', gap: space.md }}>
+            <StatusCount status="full" n={summary.full} />
+            <StatusCount status="half" n={summary.half} />
+            <StatusCount status="absent" n={summary.absent} />
           </Row>
         ) : null}
-      </Row>
-      {days.length > 0 ? (
-        // Earnings come from these days: a half day pays half the daily wage, absent pays nothing.
-        <Row style={{ flexWrap: 'wrap', gap: space.md }}>
-          <StatusCount status="full" n={summary.full} />
-          <StatusCount status="half" n={summary.half} />
-          <StatusCount status="absent" n={summary.absent} />
-        </Row>
-      ) : null}
-      <BalanceChip paisa={balance} size={20} />
 
-      {entries.length === 0 ? <T variant="small">{t.ledger.empty}</T> : null}
-      {entries.map((e) => (
-        <EntryRow
-          key={e.id}
-          entry={e}
-          effect={effects.get(e.id) ?? 0}
-          reversed={reversed.has(e.id)}
-          canReverse={role === 'owner'}
-          onReverse={() => confirmReverse(e)}
-        />
-      ))}
+        {a.is_active ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={newEntry}
+            style={({ pressed }) => [styles.primary, pressed && { opacity: 0.85 }]}>
+            <MaterialCommunityIcons name="hand-coin-outline" size={26} color={colors.white} />
+            <T variant="h2" style={{ flex: 1, color: colors.white }}>
+              {t.dashboard.giveEntry}
+            </T>
+          </Pressable>
+        ) : null}
 
-      {a.is_active ? <Button label={t.dashboard.giveEntry} onPress={newEntry} /> : null}
-      {a.is_active && role === 'owner' && rateDraft === null ? (
-        <Button label={t.assignment.changeRate} kind="secondary" onPress={() => setRateDraft('')} />
-      ) : null}
-      {rateDraft !== null ? (
-        <>
-          <Field
-            label={t.assignment.rate}
-            hint={t.assignment.changeRateHelp}
-            value={rateDraft}
-            onChangeText={setRateDraft}
-            numeric
-            autoFocus
+        {entries.length === 0 ? <T variant="small">{t.ledger.empty}</T> : null}
+        {entries.map((e) => (
+          <EntryRow
+            key={e.id}
+            entry={e}
+            effect={effects.get(e.id) ?? 0}
+            reversed={reversed.has(e.id)}
+            canReverse={role === 'owner'}
+            onReverse={() => confirmReverse(e)}
           />
-          <Button label={t.action.save} onPress={saveRate} />
-          <Button label={t.action.cancel} kind="secondary" onPress={() => setRateDraft(null)} />
-        </>
-      ) : null}
-      {a.is_active && role === 'owner' ? <Button label={t.assignment.end} kind="secondary" onPress={end} /> : null}
-    </Card>
+        ))}
+
+        {/* Set-once details and owner tools sit quietly at the bottom, out of the daily path. */}
+        <View style={styles.footer}>
+          <DateField
+            inline
+            disabled={role !== 'owner'}
+            label={t.assignment.since}
+            value={a.started_on}
+            onChange={pickStart}
+          />
+          {startError ? <Banner tone="recover" text={startError} /> : null}
+
+          {rateDraft !== null ? (
+            <>
+              <Field
+                label={t.assignment.rate}
+                hint={t.assignment.changeRateHelp}
+                value={rateDraft}
+                onChangeText={setRateDraft}
+                numeric
+                autoFocus
+              />
+              <Row>
+                <Button label={t.action.save} onPress={saveRate} style={{ flex: 1 }} />
+                <Button label={t.action.cancel} kind="secondary" onPress={() => setRateDraft(null)} style={{ flex: 1 }} />
+              </Row>
+            </>
+          ) : a.is_active && role === 'owner' ? (
+            <Row>
+              <Tool icon="cash-edit" label={t.assignment.changeRate} onPress={() => setRateDraft('')} />
+              <Tool icon="account-remove-outline" label={t.assignment.end} danger onPress={end} />
+            </Row>
+          ) : null}
+        </View>
+      </View>
+    </SiteBoard>
+  );
+}
+
+/** A small secondary action: icon and label in a pill, two to a row. */
+function Tool({
+  icon,
+  label,
+  danger,
+  onPress,
+}: {
+  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  label: string;
+  danger?: boolean;
+  onPress: () => void;
+}) {
+  const fg = danger ? colors.recover : colors.brand;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [styles.tool, { borderColor: fg }, pressed && { backgroundColor: colors.brandSoft }]}>
+      <MaterialCommunityIcons name={icon} size={20} color={fg} />
+      <T variant="small" style={{ flex: 1, color: fg }}>
+        {label}
+      </T>
+    </Pressable>
   );
 }
 
@@ -201,24 +279,46 @@ export default function WorkerDetail() {
 
   return (
     <Screen>
-      <Card onPress={() => router.push({ pathname: '/worker-form', params: { id } })}>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <View style={{ flexShrink: 1 }}>
+      <Card style={{ gap: space.md }}>
+        <Row style={{ alignItems: 'flex-start' }}>
+          <WorkerAvatar name={worker.name_ur} size={64} />
+          <View style={{ flex: 1 }}>
             <T variant="h1">{worker.name_ur}</T>
             {worker.father_name ? (
               <T variant="small">
                 {t.worker.son} {worker.father_name}
               </T>
             ) : null}
-            <Phone value={worker.phone} />
+            {worker.trade ? (
+              <View style={styles.trade}>
+                <T variant="small" style={{ color: colors.brand }}>
+                  {tradeLabel(worker.trade)}
+                </T>
+              </View>
+            ) : null}
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            {worker.trade ? <T variant="small">{tradeLabel(worker.trade)}</T> : null}
-            <T variant="small" style={{ color: colors.brand }}>
-              {t.action.edit}
-            </T>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.action.edit}
+            hitSlop={12}
+            onPress={() => router.push({ pathname: '/worker-form', params: { id } })}
+            style={styles.iconButton}>
+            <MaterialCommunityIcons name="pencil-outline" size={24} color={colors.brand} />
+          </Pressable>
         </Row>
+        {worker.phone ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t.worker.call}
+            onPress={() => Linking.openURL(`tel:${worker.phone}`)}
+            style={({ pressed }) => [styles.call, pressed && { backgroundColor: colors.brandSoft }]}>
+            <MaterialCommunityIcons name="phone-outline" size={24} color={colors.brand} />
+            <Num style={{ flex: 1, fontSize: 18 }}>{worker.phone}</Num>
+            <T variant="bodyBold" style={{ color: colors.brand }}>
+              {t.worker.call}
+            </T>
+          </Pressable>
+        ) : null}
       </Card>
 
       {assignments.length === 0 ? <Empty text={t.worker.noProjects} /> : null}
@@ -257,4 +357,49 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   struck: { textDecorationLine: 'line-through', color: colors.muted },
+  trade: { alignSelf: 'flex-start', backgroundColor: colors.brandSoft, borderRadius: 999, paddingHorizontal: space.md },
+  iconButton: { padding: space.xs },
+  stats: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    backgroundColor: colors.bg,
+    paddingVertical: space.sm,
+  },
+  stat: { flex: 1, alignItems: 'center' },
+  statDivider: { width: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  primary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: 60,
+    borderRadius: 12,
+    backgroundColor: colors.brand,
+    paddingHorizontal: space.lg,
+  },
+  footer: {
+    gap: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: space.sm,
+  },
+  tool: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    paddingHorizontal: space.md,
+  },
+  call: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: space.md,
+  },
 });

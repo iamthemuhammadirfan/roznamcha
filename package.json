@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/noto-naskh-arabic": "^0.4.5",
+    "@expo/vector-icons": "^15.0.2",
     "@op-engineering/op-sqlite": "^18.2.5",
     "@powersync/common": "^2.3.0",
     "@powersync/drizzle-driver": "^0.8.0",

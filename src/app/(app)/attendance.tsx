@@ -1,28 +1,33 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { useProjectAssignments, useProjectAttendance } from '@/db/hooks';
-import { activeOn, coverage, type Coverage, monthWeeks, summarize } from '@/lib/attendance';
+import { activeOn, coverage, type Coverage, summarize } from '@/lib/attendance';
 import { attendanceEarning } from '@/lib/balance';
-import { formatMonth, today, weekdaysShort } from '@/lib/dates';
+import { today } from '@/lib/dates';
 import { useActiveProject } from '@/state/active-project';
-import { lang, t } from '@/i18n';
+import { t } from '@/i18n';
 import { StatusCount } from '@/ui/attendance';
 import { Card, Row, Screen } from '@/ui/controls';
+import { MonthGrid, MonthNav, monthOf } from '@/ui/month-grid';
 import { Money, Num, T } from '@/ui/text';
 import { colors, space } from '@/ui/theme';
 
-const TINT: Record<Coverage, string> = {
+// A bar under the date rather than a filled cell: a month of unmarked days reads as
+// "to do", not as a wall of red.
+const BAR: Record<Coverage, string> = {
   none: 'transparent',
-  complete: colors.owedSoft,
-  partial: colors.pendingSoft,
-  missing: colors.recoverSoft,
+  complete: colors.owed,
+  partial: colors.pending,
+  missing: colors.recover,
 };
 
 /**
  * Month view of one project's haazri. The owner's question is "was attendance marked
- * every day last week?" — gaps show up as red days instead of silently not existing.
+ * every day last week?" — gaps show up as red marks instead of silently not existing.
+ * Today's sheet is one tap away at the top, because that's what the munshi opens daily.
  */
 export default function AttendanceCalendar() {
   const { projectId } = useActiveProject();
@@ -31,13 +36,11 @@ export default function AttendanceCalendar() {
   const rows = useProjectAttendance(pid);
 
   const now = today();
-  const [ym, setYm] = useState({ y: Number(now.slice(0, 4)), m: Number(now.slice(5, 7)) });
+  const [ym, setYm] = useState(monthOf(now));
   const prefix = `${ym.y}-${String(ym.m).padStart(2, '0')}`;
-  const isCurrentMonth = now.startsWith(prefix);
 
   const markedByDay = new Map<string, Set<string>>();
   for (const r of rows) {
-    if (!r.date.startsWith(prefix)) continue;
     const set = markedByDay.get(r.date) ?? new Set<string>();
     set.add(r.assignment_id);
     markedByDay.set(r.date, set);
@@ -54,11 +57,7 @@ export default function AttendanceCalendar() {
   const monthRows = rows.filter((r) => r.date.startsWith(prefix));
   const month = summarize(monthRows);
   const monthWages = monthRows.reduce((s, r) => s + attendanceEarning(r), 0);
-
-  function shift(delta: number) {
-    const d = new Date(ym.y, ym.m - 1 + delta, 1);
-    setYm({ y: d.getFullYear(), m: d.getMonth() + 1 });
-  }
+  const todayState = dayCoverage(now);
 
   function open(day: string) {
     if (day > now) return Alert.alert(t.attendance.futureDay);
@@ -67,64 +66,53 @@ export default function AttendanceCalendar() {
 
   return (
     <Screen>
-      <Row style={{ justifyContent: 'space-between' }}>
-        <Pressable onPress={() => shift(-1)} style={styles.nav} accessibilityRole="button">
-          <T variant="bodyBold" style={{ color: colors.brand }}>
-            {t.attendance.prevMonth}
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => open(now)}
+        style={({ pressed }) => [styles.today, pressed && { opacity: 0.85 }]}>
+        <MaterialCommunityIcons name="calendar-check" size={36} color={colors.white} />
+        <View style={{ flex: 1 }}>
+          <T variant="h2" style={{ color: colors.white }}>
+            {t.attendance.markToday}
           </T>
-        </Pressable>
-        <T variant="h2">{formatMonth(ym.y, ym.m, lang)}</T>
-        <Pressable
-          onPress={() => shift(1)}
-          disabled={isCurrentMonth}
-          style={[styles.nav, isCurrentMonth && { opacity: 0.3 }]}
-          accessibilityRole="button">
-          <T variant="bodyBold" style={{ color: colors.brand }}>
-            {t.attendance.nextMonth}
-          </T>
-        </Pressable>
-      </Row>
-
-      <Card style={{ padding: space.sm, gap: space.xs }}>
-        <View style={styles.week}>
-          {weekdaysShort(lang).map((w) => (
-            <T key={w} variant="small" numberOfLines={1} adjustsFontSizeToFit style={styles.weekday}>
-              {w}
+          {todayState !== 'none' ? (
+            <T variant="small" style={{ color: colors.brandSoft }}>
+              {t.attendance[todayState]}
             </T>
-          ))}
+          ) : null}
         </View>
-        {monthWeeks(ym.y, ym.m).map((week, i) => (
-          <View key={i} style={styles.week}>
-            {week.map((day, j) => {
-              if (!day) return <View key={j} style={styles.cell} />;
-              const c = dayCoverage(day);
-              return (
-                <Pressable
-                  key={day}
-                  onPress={() => open(day)}
-                  style={({ pressed }) => [
-                    styles.cell,
-                    styles.day,
-                    { backgroundColor: TINT[c] },
-                    day === now && styles.today,
-                    day > now && { opacity: 0.35 },
-                    pressed && { opacity: 0.6 },
-                  ]}>
-                  <Num bold={day === now} style={{ fontSize: 18 }}>
-                    {Number(day.slice(8))}
-                  </Num>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </Card>
+      </Pressable>
 
-      <Row style={{ flexWrap: 'wrap', gap: space.md }}>
-        <Legend color={colors.owedSoft} label={t.attendance.complete} />
-        <Legend color={colors.pendingSoft} label={t.attendance.partial} />
-        <Legend color={colors.recoverSoft} label={t.attendance.missing} />
-      </Row>
+      <Card style={{ padding: space.md, gap: space.sm }}>
+        <MonthNav value={ym} onChange={setYm} canGoForward={!now.startsWith(prefix)} />
+        <MonthGrid
+          value={ym}
+          renderDay={(day) => {
+            const c = dayCoverage(day);
+            const isToday = day === now;
+            return (
+              <Pressable
+                onPress={() => open(day)}
+                style={({ pressed }) => [
+                  styles.day,
+                  isToday && styles.dayToday,
+                  day > now && { opacity: 0.3 },
+                  pressed && { backgroundColor: colors.brandSoft },
+                ]}>
+                <Num bold={isToday} style={{ fontSize: 18, color: isToday ? colors.siteInk : colors.text }}>
+                  {Number(day.slice(8))}
+                </Num>
+                <View style={[styles.bar, { backgroundColor: BAR[c] }]} />
+              </Pressable>
+            );
+          }}
+        />
+        <Row style={{ gap: space.sm }}>
+          <Legend color={colors.owed} label={t.attendance.complete} />
+          <Legend color={colors.pending} label={t.attendance.partial} />
+          <Legend color={colors.recover} label={t.attendance.missing} />
+        </Row>
+      </Card>
 
       <Card>
         <Row style={{ flexWrap: 'wrap', gap: space.md }}>
@@ -133,7 +121,9 @@ export default function AttendanceCalendar() {
           <StatusCount status="absent" n={month.absent} />
         </Row>
         <Row style={{ justifyContent: 'space-between' }}>
-          <T variant="small">{t.ledger.earned}</T>
+          <T variant="small" style={{ flex: 1 }}>
+            {t.ledger.earned}
+          </T>
           <Money paisa={monthWages} size={20} />
         </Row>
       </Card>
@@ -143,19 +133,30 @@ export default function AttendanceCalendar() {
 
 function Legend({ color, label }: { color: string; label: string }) {
   return (
-    <Row>
-      <View style={[styles.swatch, { backgroundColor: color }]} />
-      <T variant="small">{label}</T>
+    // Equal columns with the label filling its column: Android mis-measures shrink-wrapped
+    // Nastaliq and drops the last word.
+    <Row style={{ flex: 1, gap: space.xs }}>
+      <View style={[styles.legendBar, { backgroundColor: color }]} />
+      <T variant="small" style={{ flex: 1 }}>
+        {label}
+      </T>
     </Row>
   );
 }
 
 const styles = StyleSheet.create({
-  nav: { minHeight: 48, justifyContent: 'center', paddingHorizontal: space.sm },
-  week: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', fontSize: 13, lineHeight: 28 },
-  cell: { flex: 1, aspectRatio: 1, margin: 2 },
-  day: { borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  today: { borderWidth: 2, borderColor: colors.brand },
-  swatch: { width: 18, height: 18, borderRadius: 4, borderWidth: 1, borderColor: colors.border },
+  today: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: 88,
+    borderRadius: 14,
+    backgroundColor: colors.brand,
+    paddingHorizontal: space.lg,
+  },
+  day: { flex: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  // Today wears the same yellow plate as the project number.
+  dayToday: { backgroundColor: colors.site, borderWidth: 2, borderColor: colors.siteInk },
+  bar: { width: '50%', height: 4, borderRadius: 2 },
+  legendBar: { width: 18, height: 4, borderRadius: 2 },
 });

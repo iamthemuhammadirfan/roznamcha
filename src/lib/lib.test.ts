@@ -3,7 +3,8 @@ import { describe, expect, test } from 'bun:test';
 
 import { activeOn, coverage, monthWeeks, nextStatus, summarize } from './attendance';
 import { attendanceEarning, computeBalance, reversedIds } from './balance';
-import { addDays, daysBetween, formatDay, formatDayUr, weekday } from './dates';
+import { summarizeExpenses, summarizeRange } from './expenses';
+import { addDays, daysBetween, presetRange, formatDay, formatDayUr, weekday } from './dates';
 import { formatRupees, parseRupees, toWhatsAppNumber } from './money';
 import { makeRefCode } from './ref-code';
 
@@ -131,4 +132,63 @@ describe('attendance', () => {
 test('ref codes look like R-YYYY-XXXXXX', () => {
   expect(makeRefCode(2026, new Uint8Array([0, 1, 2, 3, 4, 31]))).toBe('R-2026-23456Z');
   expect(makeRefCode(2026, new Uint8Array(6))).toMatch(/^R-2026-[2-9A-Z]{6}$/);
+});
+
+describe('project expenses', () => {
+  const row = (id: string, amount: number, date: string, category = 'diesel', reverses: string | null = null) => ({
+    id,
+    kind: reverses ? 'correction' : 'expense',
+    amount_paisa: amount,
+    reverses_id: reverses,
+    date,
+    category_id: category,
+  });
+
+  test('sums today, this month and all time by category', () => {
+    const s = summarizeExpenses(
+      [row('a', 50000, '2026-10-13'), row('b', 20000, '2026-10-02', 'chai'), row('c', 10000, '2026-09-30')],
+      '2026-10-13',
+    );
+    expect(s.today).toBe(50000);
+    expect(s.month).toBe(70000);
+    expect(s.total).toBe(80000);
+    expect(s.byCategory.get('diesel')).toBe(60000);
+    expect(s.byCategory.get('chai')).toBe(20000);
+  });
+
+  test('a cancelled expense and its correction both drop out', () => {
+    const s = summarizeExpenses([row('a', 50000, '2026-10-01'), row('x', 50000, '2026-10-13', 'diesel', 'a')], '2026-10-13');
+    expect(s.total).toBe(0);
+    expect(s.today).toBe(0);
+    expect(s.byCategory.size).toBe(0);
+  });
+});
+
+describe('expense date filter', () => {
+  const row = (id: string, amount: number, date: string, reverses: string | null = null) => ({
+    id,
+    kind: reverses ? 'correction' : 'expense',
+    amount_paisa: amount,
+    reverses_id: reverses,
+    date,
+    category_id: 'diesel',
+  });
+
+  test('counts only expenses dated inside the range, ends included', () => {
+    const rows = [row('a', 100, '2026-10-01'), row('b', 200, '2026-10-05'), row('c', 400, '2026-10-06')];
+    expect(summarizeRange(rows, { from: '2026-10-01', to: '2026-10-05' }).total).toBe(300);
+  });
+
+  test('a cancelled expense drops out even if the correction is dated outside the range', () => {
+    const rows = [row('a', 100, '2026-09-20'), row('x', 100, '2026-10-02', 'a')];
+    expect(summarizeRange(rows, { from: '2026-09-01', to: '2026-09-30' }).total).toBe(0);
+  });
+
+  test('presets', () => {
+    // 2026-10-14 is a Wednesday.
+    expect(presetRange('week', '2026-10-14')).toEqual({ from: '2026-10-12', to: '2026-10-14' });
+    expect(presetRange('month', '2026-10-14')).toEqual({ from: '2026-10-01', to: '2026-10-14' });
+    expect(presetRange('lastMonth', '2026-10-14')).toEqual({ from: '2026-09-01', to: '2026-09-30' });
+    expect(presetRange('lastMonth', '2026-01-10')).toEqual({ from: '2025-12-01', to: '2025-12-31' });
+  });
 });

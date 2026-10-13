@@ -9,7 +9,17 @@ import { today } from '@/lib/dates';
 import { makeRefCode } from '@/lib/ref-code';
 
 import { db } from './index';
-import { assignment, attendance, ledgerEntry, project, rejectedWrite, worker } from './schema';
+import {
+  assignment,
+  attendance,
+  expenseCategory,
+  ledgerEntry,
+  project,
+  projectExpense,
+  rejectedWrite,
+  trade,
+  worker,
+} from './schema';
 
 export interface WriteContext {
   businessId: string;
@@ -93,6 +103,49 @@ export async function updateWorker(id: string, input: WorkerInput) {
   await db.update(worker).set({ ...clean(input), ...touched() }).where(eq(worker.id, id));
 }
 
+// ─── Trades ──────────────────────────────────────────────────────────────────
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+export async function tradeNameTaken(name: string, exceptId?: string) {
+  const rows = await db.select({ id: trade.id, name: trade.name }).from(trade);
+  return rows.some((r) => r.id !== exceptId && sameName(r.name, name));
+}
+
+/** Owner only (RLS). Returns false if the name is blank or already in the list. */
+export async function addTrade(ctx: WriteContext, name: string) {
+  if (!name.trim() || (await tradeNameTaken(name))) return false;
+  await db.insert(trade).values({
+    id: randomUUID(),
+    business_id: ctx.businessId,
+    name: name.trim(),
+    created_by: ctx.userId,
+    created_at: new Date().toISOString(),
+  });
+  return true;
+}
+
+/**
+ * Renames a trade and moves the workers who have it to the new name, since a worker
+ * stores the name. Returns false if the name is blank or already used by another trade.
+ */
+export async function renameTrade(id: string, name: string) {
+  const next = name.trim();
+  if (!next || (await tradeNameTaken(next, id))) return false;
+  await db.transaction(async (tx) => {
+    const [current] = await tx.select().from(trade).where(eq(trade.id, id));
+    if (!current || current.name === next) return;
+    await tx.update(trade).set({ name: next }).where(eq(trade.id, id));
+    await tx.update(worker).set({ trade: next, ...touched() }).where(eq(worker.trade, current.name));
+  });
+  return true;
+}
+
+/** Workers keep the name they already have; this only removes it from the picker. */
+export async function removeTrade(id: string) {
+  await db.delete(trade).where(eq(trade.id, id));
+}
+
 // ─── Assignments ─────────────────────────────────────────────────────────────
 
 export async function activeAssignment(workerId: string, projectId: string) {
@@ -103,14 +156,52 @@ export async function activeAssignment(workerId: string, projectId: string) {
   return rows[0] ?? null;
 }
 
-export async function assignWorker(ctx: WriteContext, workerId: string, projectId: string, dailyRatePaisa: number) {
+export type StartDateProblem = 'future' | 'taken' | 'afterAttendance';
+
+/**
+ * Why a start date can't be used, or null if it can. A worker may have been on site
+ * before they were entered, so any past day is fine — but not one another stint on this
+ * project already started on (Postgres has a unique index on it), and not after
+ * attendance that is already marked on this assignment.
+ */
+export async function startDateProblem(
+  workerId: string,
+  projectId: string,
+  day: string,
+  assignmentId?: string,
+): Promise<StartDateProblem | null> {
+  if (day > today()) return 'future';
+  const same = await db
+    .select({ id: assignment.id })
+    .from(assignment)
+    .where(and(eq(assignment.worker_id, workerId), eq(assignment.project_id, projectId), eq(assignment.started_on, day)));
+  if (same.some((r) => r.id !== assignmentId)) return 'taken';
+  if (assignmentId) {
+    const marked = await db.select({ date: attendance.date }).from(attendance).where(eq(attendance.assignment_id, assignmentId));
+    if (marked.some((r) => r.date < day)) return 'afterAttendance';
+  }
+  return null;
+}
+
+/** Owner only (RLS). Check `startDateProblem` first. */
+export async function changeStartDate(assignmentId: string, day: string) {
+  await db.update(assignment).set({ started_on: day, ...touched() }).where(eq(assignment.id, assignmentId));
+}
+
+export async function assignWorker(
+  ctx: WriteContext,
+  workerId: string,
+  projectId: string,
+  dailyRatePaisa: number,
+  startedOn: string = today(),
+) {
   const id = randomUUID();
   await db.insert(assignment).values({
     id,
     worker_id: workerId,
     project_id: projectId,
     daily_rate_paisa: dailyRatePaisa,
-    started_on: today(),
+    started_on: startedOn,
     ended_on: null,
     is_active: true,
     ...meta(ctx),
@@ -242,6 +333,92 @@ export async function stampReceiptSent(entryId: string) {
     .update(ledgerEntry)
     .set({ receipt_sent_at: new Date().toISOString() })
     .where(and(eq(ledgerEntry.id, entryId), isNull(ledgerEntry.receipt_sent_at)));
+}
+
+// ─── Project expenses (append-only) ──────────────────────────────────────────
+
+export async function expenseCategoryNameTaken(name: string, exceptId?: string) {
+  const rows = await db.select({ id: expenseCategory.id, name: expenseCategory.name }).from(expenseCategory);
+  return rows.some((r) => r.id !== exceptId && sameName(r.name, name));
+}
+
+/**
+ * Owner only (RLS). A hidden category with the same name is shown again rather than
+ * duplicated. Returns false if the name is blank or already in the list.
+ */
+export async function addExpenseCategory(ctx: WriteContext, name: string) {
+  const next = name.trim();
+  if (!next) return false;
+  const hidden = (await db.select().from(expenseCategory).where(eq(expenseCategory.is_active, false))).find((r) =>
+    sameName(r.name, next),
+  );
+  if (hidden) {
+    await setExpenseCategoryActive(hidden.id, true);
+    return true;
+  }
+  if (await expenseCategoryNameTaken(next)) return false;
+  await db.insert(expenseCategory).values({ id: randomUUID(), name: next, is_active: true, ...meta(ctx) });
+  return true;
+}
+
+/** Past expenses point at the category by id, so they show the new name too. */
+export async function renameExpenseCategory(id: string, name: string) {
+  const next = name.trim();
+  if (!next || (await expenseCategoryNameTaken(next, id))) return false;
+  await db.update(expenseCategory).set({ name: next, ...touched() }).where(eq(expenseCategory.id, id));
+  return true;
+}
+
+/** Categories are hidden, never deleted: past expenses still point at them. */
+export async function setExpenseCategoryActive(id: string, active: boolean) {
+  await db.update(expenseCategory).set({ is_active: active, ...touched() }).where(eq(expenseCategory.id, id));
+}
+
+export interface ExpenseInput {
+  projectId: string;
+  categoryId: string;
+  amountPaisa: number;
+  date: string;
+  note: string | null;
+}
+
+export async function addExpense(ctx: WriteContext, input: ExpenseInput) {
+  const id = randomUUID();
+  await db.insert(projectExpense).values({
+    id,
+    project_id: input.projectId,
+    category_id: input.categoryId,
+    date: input.date,
+    kind: 'expense',
+    amount_paisa: input.amountPaisa,
+    note: input.note?.trim() || null,
+    reverses_id: null,
+    ...meta(ctx),
+  });
+  return id;
+}
+
+/** A wrong expense is never edited or deleted — it gets a correction that cancels it. Owner only. */
+export async function reverseExpense(ctx: WriteContext, original: typeof projectExpense.$inferSelect) {
+  const existing = await db
+    .select({ id: projectExpense.id })
+    .from(projectExpense)
+    .where(eq(projectExpense.reverses_id, original.id));
+  if (existing.length > 0) return existing[0].id;
+
+  const id = randomUUID();
+  await db.insert(projectExpense).values({
+    id,
+    project_id: original.project_id,
+    category_id: original.category_id,
+    date: today(),
+    kind: 'correction',
+    amount_paisa: original.amount_paisa,
+    note: null,
+    reverses_id: original.id,
+    ...meta(ctx),
+  });
+  return id;
 }
 
 export async function dismissRejected(id: string) {

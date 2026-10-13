@@ -13,10 +13,13 @@ streams:
       - SELECT * FROM membership WHERE business_id IN my_businesses
       - SELECT * FROM project WHERE business_id IN my_businesses
       - SELECT * FROM worker WHERE business_id IN my_businesses
+      - SELECT * FROM trade WHERE business_id IN my_businesses
       - SELECT * FROM assignment WHERE business_id IN my_businesses
       - SELECT * FROM attendance WHERE business_id IN my_businesses
       - SELECT * FROM ledger_entry WHERE business_id IN my_businesses
       - SELECT * FROM settlement WHERE business_id IN my_businesses
+      - SELECT * FROM expense_category WHERE business_id IN my_businesses
+      - SELECT * FROM project_expense WHERE business_id IN my_businesses
   app_config:
     auto_subscribe: true
     query: SELECT * FROM app_config
