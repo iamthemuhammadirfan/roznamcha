@@ -2,7 +2,8 @@ import { useStatus } from '@powersync/react-native';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { Alert, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { usePendingUploadCount } from '@/db/hooks';
 import { useMember, useSession } from '@/state/session';
@@ -24,7 +25,6 @@ export default function Settings() {
   const member = useMember();
   const status = useStatus();
   const pending = usePendingUploadCount();
-  const { isUpdatePending } = Updates.useUpdates();
   const isOwner = member.role === 'owner';
 
   function confirmSignOut() {
@@ -104,14 +104,7 @@ export default function Settings() {
           value={<Num style={{ color: colors.muted }}>{Constants.expoConfig?.version}</Num>}
           detail={Updates.updateId ? <Num style={styles.debug}>{Updates.updateId.slice(0, 8)}</Num> : undefined}
         />
-        {isUpdatePending ? (
-          <SettingsRow
-            icon="restart"
-            label={t.settings.restart}
-            detail={t.settings.updateReady}
-            onPress={() => Updates.reloadAsync()}
-          />
-        ) : null}
+        <UpdateCheckRow />
       </SettingsSection>
 
       {/* Shown in Urdu-agnostic form on purpose: this is for whoever is debugging. */}
@@ -128,6 +121,77 @@ export default function Settings() {
         </SettingsSection>
       ) : null}
     </Screen>
+  );
+}
+
+/**
+ * Check for a new version now, instead of waiting for the next launch. Shows where the
+ * check is — checking, downloading %, ready (restart), up to date — and when it last ran.
+ */
+function UpdateCheckRow() {
+  const { isChecking, isDownloading, downloadProgress, isUpdatePending, lastCheckForUpdateTimeSinceRestart } =
+    Updates.useUpdates();
+  const [failed, setFailed] = useState(false);
+
+  async function check() {
+    setFailed(false);
+    try {
+      const result = await Updates.checkForUpdateAsync();
+      if (result.isAvailable) await Updates.fetchUpdateAsync();
+    } catch {
+      setFailed(true);
+    }
+  }
+
+  if (!Updates.isEnabled) {
+    return <SettingsRow icon="cloud-download-outline" label={t.update.check} detail={t.update.disabled} />;
+  }
+  if (isUpdatePending) {
+    return (
+      <SettingsRow
+        icon="restart"
+        label={t.settings.restart}
+        detail={t.settings.updateReady}
+        onPress={() => Updates.reloadAsync()}
+      />
+    );
+  }
+  if (isChecking || isDownloading) {
+    return (
+      <SettingsRow
+        icon="cloud-download-outline"
+        label={isDownloading ? t.update.downloading : t.update.checking}
+        value={
+          isDownloading ? (
+            <Num bold style={{ color: colors.brand }}>{`${Math.round((downloadProgress ?? 0) * 100)}%`}</Num>
+          ) : (
+            <ActivityIndicator color={colors.brand} />
+          )
+        }
+      />
+    );
+  }
+  const last = lastCheckForUpdateTimeSinceRestart;
+  return (
+    <SettingsRow
+      icon="cloud-download-outline"
+      label={t.update.check}
+      detail={
+        failed ? (
+          <T variant="small" style={{ color: colors.recover }}>
+            {t.update.checkFailed}
+          </T>
+        ) : last ? (
+          <Row style={{ gap: space.xs }}>
+            <T variant="small">{t.update.upToDate}</T>
+            <Num style={styles.debug}>
+              {last.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+            </Num>
+          </Row>
+        ) : undefined
+      }
+      onPress={check}
+    />
   );
 }
 

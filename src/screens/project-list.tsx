@@ -25,7 +25,7 @@ import { Banner, Empty, Row } from '@/ui/controls';
 import { Fab } from '@/ui/fab';
 import { SearchField } from '@/ui/search-field';
 import { CodePlate, SiteBoard } from '@/ui/site-board';
-import { NotSaved, UpdateBanner } from '@/ui/status-banners';
+import { NotSaved } from '@/ui/status-banners';
 import { Money, Num, T } from '@/ui/text';
 import { colors, space } from '@/ui/theme';
 
@@ -155,7 +155,6 @@ export function ProjectList() {
         ListHeaderComponent={
           <>
             {localMode ? <Banner text={t.app.localMode} /> : null}
-            <UpdateBanner />
             <NotSaved />
           </>
         }

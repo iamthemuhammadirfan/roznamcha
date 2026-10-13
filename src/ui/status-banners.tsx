@@ -1,5 +1,4 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import * as Updates from 'expo-updates';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,21 +9,9 @@ import type { rejectedWrite } from '@/db/schema';
 import { formatDay } from '@/lib/dates';
 import { lang, t } from '@/i18n';
 
-import { Button, Card, Row } from './controls';
+import { Button, Row } from './controls';
 import { Money, Num, T } from './text';
 import { colors, space } from './theme';
-
-/** "New version ready — restart", shown once an OTA update has downloaded. */
-export function UpdateBanner() {
-  const { isUpdatePending } = Updates.useUpdates();
-  if (!isUpdatePending) return null;
-  return (
-    <Card style={{ backgroundColor: colors.brandSoft }}>
-      <T variant="bodyBold">{t.settings.updateReady}</T>
-      <Button label={t.settings.restart} onPress={() => Updates.reloadAsync()} />
-    </Card>
-  );
-}
 
 type Rejected = typeof rejectedWrite.$inferSelect;
 type Reason = 'duplicate' | 'permission' | 'invalid' | 'other';

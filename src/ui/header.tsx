@@ -9,6 +9,7 @@ import { useActiveProject } from '@/state/active-project';
 import { isUrdu, t } from '@/i18n';
 
 import { SyncBadge } from './sync-badge';
+import { UpdateStrip } from './update-strip';
 import { Num, T } from './text';
 import { colors, space } from './theme';
 
@@ -86,6 +87,7 @@ export function AppHeader({ navigation, options, back }: HeaderProps) {
         <View style={{ flex: 1 }}>{title}</View>
         <SyncBadge />
       </View>
+      <UpdateStrip />
     </View>
   );
 }
