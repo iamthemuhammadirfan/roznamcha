@@ -319,6 +319,9 @@ export const ur = {
     languageHelp: 'زبان بدلنے پر ایپ دوبارہ کھلے گی۔ مزدور کو پرچی ہمیشہ اردو میں جائے گی۔',
   },
   update: {
+    checkError: 'چیک نہیں ہو سکا',
+    apk: 'APK',
+    updatedOn: 'اپ ڈیٹ',
     downloading: 'نیا ورژن ڈاؤن لوڈ ہو رہا ہے',
     checking: 'نیا ورژن دیکھا جا رہا ہے',
     upToDate: 'تازہ ترین ورژن',

@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { usePendingUploadCount } from '@/db/hooks';
+import { formatDay, toDay } from '@/lib/dates';
+import { RELEASE } from '@/release';
 import { useMember, useSession } from '@/state/session';
 import { lang, type Lang, setLanguage, t } from '@/i18n';
 import { Banner, Row, Screen } from '@/ui/controls';
@@ -101,8 +103,23 @@ export default function Settings() {
         <SettingsRow
           icon="information-outline"
           label={t.settings.version}
-          value={<Num style={{ color: colors.muted }}>{Constants.expoConfig?.version}</Num>}
-          detail={Updates.updateId ? <Num style={styles.debug}>{Updates.updateId.slice(0, 8)}</Num> : undefined}
+          value={
+            <Num bold style={{ color: colors.text }}>
+              {RELEASE}
+            </Num>
+          }
+          detail={
+            // What exactly this phone runs: the installed APK, and the update on top of it.
+            <Num style={styles.debug}>
+              {[
+                `${t.update.apk} ${Constants.expoConfig?.version ?? ''}`,
+                Updates.updateId ? Updates.updateId.slice(0, 8) : null,
+                Updates.createdAt && !Updates.isEmbeddedLaunch ? formatDay(toDay(Updates.createdAt), lang) : null,
+              ]
+                .filter(Boolean)
+                .join('   ')}
+            </Num>
+          }
         />
         <UpdateCheckRow />
       </SettingsSection>
@@ -131,19 +148,21 @@ export default function Settings() {
 function UpdateCheckRow() {
   const { isChecking, isDownloading, downloadProgress, isUpdatePending, lastCheckForUpdateTimeSinceRestart } =
     Updates.useUpdates();
-  const [failed, setFailed] = useState(false);
+  // null = no failure; otherwise the error's message, shown small for whoever is debugging.
+  const [failure, setFailure] = useState<string | null>(null);
 
   async function check() {
-    setFailed(false);
+    setFailure(null);
     try {
       const result = await Updates.checkForUpdateAsync();
       if (result.isAvailable) await Updates.fetchUpdateAsync();
-    } catch {
-      setFailed(true);
+    } catch (e) {
+      setFailure(e instanceof Error ? e.message : String(e));
     }
   }
 
-  if (!Updates.isEnabled) {
+  // Development builds load JS from the laptop; Expo refuses update checks there.
+  if (!Updates.isEnabled || __DEV__) {
     return <SettingsRow icon="cloud-download-outline" label={t.update.check} detail={t.update.disabled} />;
   }
   if (isUpdatePending) {
@@ -177,10 +196,22 @@ function UpdateCheckRow() {
       icon="cloud-download-outline"
       label={t.update.check}
       detail={
-        failed ? (
-          <T variant="small" style={{ color: colors.recover }}>
-            {t.update.checkFailed}
-          </T>
+        failure !== null ? (
+          // Only blame the internet when the error is actually about the network.
+          /network|internet|connect|timeout|host|offline/i.test(failure) ? (
+            <T variant="small" style={{ color: colors.recover }}>
+              {t.update.checkFailed}
+            </T>
+          ) : (
+            <View>
+              <T variant="small" style={{ color: colors.recover }}>
+                {t.update.checkError}
+              </T>
+              <Num style={styles.debug} numberOfLines={2}>
+                {failure}
+              </Num>
+            </View>
+          )
         ) : last ? (
           <Row style={{ gap: space.xs }}>
             <T variant="small">{t.update.upToDate}</T>

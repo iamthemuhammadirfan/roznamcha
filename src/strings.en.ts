@@ -323,6 +323,9 @@ export const en: Strings = {
     languageHelp: 'The app restarts when you change language. Workers always get the receipt in Urdu.',
   },
   update: {
+    checkError: 'Couldn’t check',
+    apk: 'APK',
+    updatedOn: 'Update',
     downloading: 'Downloading new version',
     checking: 'Checking for a new version',
     upToDate: 'Up to date',
