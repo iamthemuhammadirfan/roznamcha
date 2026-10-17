@@ -17,6 +17,8 @@ import { colors, space, TOUCH_MIN } from '@/ui/theme';
 import { WorkerAvatar } from '@/ui/worker-avatar';
 
 const AVATAR = 44;
+/** Plates shown per row; the rest fold into a "+N" so the father's name keeps its room. */
+const MAX_PLATES = 2;
 
 /**
  * The global worker directory. As a tab, tapping a person opens their ledger. In pick
@@ -49,11 +51,16 @@ export function Directory({ picking = false }: { picking?: boolean }) {
   const trades = [...tradeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n);
   const filtered = trade ? matches.filter((w) => w.trade === trade) : matches;
 
+  // Each project once (a rejoin is a second assignment), by code so rows read alike.
   const sitesOf = (workerId: string) =>
-    assignments
-      .filter((a) => a.worker_id === workerId && a.is_active)
-      .map((a) => projectOf.get(a.project_id))
-      .filter((p) => p !== undefined);
+    [
+      ...new Set(
+        assignments
+          .filter((a) => a.worker_id === workerId && a.is_active)
+          .map((a) => projectOf.get(a.project_id))
+          .filter((p) => p !== undefined),
+      ),
+    ].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
 
   function onPick(workerId: string) {
     if (!picking) {
@@ -166,20 +173,35 @@ function WorkerRow({
           <T variant="small" numberOfLines={1} style={{ flex: 1 }}>
             {w.father_name ? `${t.worker.son} ${w.father_name}` : ''}
           </T>
-          {/* Where he works now: crane + the site's yellow number, so it can't be read as money. */}
-          {sites.map((p) => (
-            <Row key={p.id} style={{ gap: 2 }}>
-              <MaterialCommunityIcons name="crane" size={16} color={colors.muted} />
-              <View style={styles.plate}>
-                <Num bold style={{ fontSize: 13, lineHeight: 20, color: colors.siteInk }}>
-                  {p.code}
-                </Num>
-              </View>
-            </Row>
-          ))}
+          {/* Where he works now: crane + the sites' yellow numbers, so they can't be read as money. */}
+          {sites.length > 0 ? <Sites sites={sites} /> : null}
         </Row>
       </View>
     </Pressable>
+  );
+}
+
+/** One crane, the first few site plates, then "+N" for the rest (all are on his ledger). */
+function Sites({ sites }: { sites: Project[] }) {
+  const shown = sites.slice(0, MAX_PLATES);
+  const more = sites.length - shown.length;
+  return (
+    <Row style={{ gap: 4 }}>
+      <MaterialCommunityIcons name="crane" size={16} color={colors.muted} />
+      {shown.map((p) => (
+        <View key={p.id} style={styles.plate}>
+          <Num bold style={styles.plateText}>
+            {p.code}
+          </Num>
+        </View>
+      ))}
+      {more > 0 ? (
+        <View style={styles.more}>
+          {/* LRM first: Android ignores writingDirection, and RTL would print "2+". */}
+          <Num bold style={styles.moreText}>{`\u200E+${more}`}</Num>
+        </View>
+      ) : null}
+    </Row>
   );
 }
 
@@ -225,4 +247,7 @@ const styles = StyleSheet.create({
     borderColor: colors.siteInk,
     paddingHorizontal: 5,
   },
+  plateText: { fontSize: 13, lineHeight: 20, color: colors.siteInk },
+  more: { backgroundColor: colors.bg, borderRadius: 5, borderWidth: 1.5, borderColor: colors.border, paddingHorizontal: 5 },
+  moreText: { fontSize: 13, lineHeight: 20, color: colors.muted },
 });
