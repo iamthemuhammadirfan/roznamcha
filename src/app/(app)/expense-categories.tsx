@@ -7,10 +7,11 @@ import type { ExpenseCategory } from '@/db/schema';
 import { expenseCategoryLabel, t } from '@/i18n';
 import { useMember, useWriteContext } from '@/state/session';
 import { AddBar } from '@/ui/add-bar';
+import { ChoiceDialog } from '@/ui/choice-dialog';
+import { Empty } from '@/ui/controls';
 import { EditRow, IconAction, ListRow, SectionTitle } from '@/ui/list-group';
+import { ListBanner, ListScreen } from '@/ui/list-screen';
 import { ListStage } from '@/ui/site-status';
-import { ChoiceDialog } from '@/ui/tamagui-dialog';
-import { Banner, Empty, ListScreen } from '@/ui/tamagui-screen';
 
 const fold = (s: string) => s.trim().toLowerCase();
 
@@ -38,7 +39,7 @@ export default function ExpenseCategoriesScreen() {
   if (role !== 'owner') {
     return (
       <ListScreen>
-        <Banner text={t.expense.ownerOnly} />
+        <ListBanner text={t.expense.ownerOnly} />
       </ListScreen>
     );
   }
@@ -105,7 +106,7 @@ export default function ExpenseCategoriesScreen() {
                 { label: t.expense.hidden, value: String(categories.filter((c) => !c.is_active).length) },
               ]}
             />
-            {error ? <Banner tone="recover" text={error} /> : null}
+            {error ? <ListBanner tone="recover" text={error} /> : null}
             {categories.length === 0 && !q ? <Empty text={t.expense.categoriesEmpty} /> : null}
             {q && items.length === 0 ? <Empty text={t.list.noMatch} /> : null}
           </>

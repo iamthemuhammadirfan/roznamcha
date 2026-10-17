@@ -1,11 +1,10 @@
 // The top of Settings: a full-width stage that continues the header, with who this
 // phone belongs to and whether its data is safe. At its centre, a laser level: an
 // emitter whose beam runs to both edges, coloured by the sync state.
-// Built with Tamagui (Settings only).
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { View } from '@tamagui/core';
 import { useFocusEffect } from 'expo-router';
 import { Fragment, type ReactNode, useCallback, useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -20,9 +19,8 @@ import Animated, {
 import { isUrdu } from '@/i18n';
 
 import { type IconName } from './settings-list';
-import { XStack, YStack } from './tamagui.config';
-import { Digits, Text } from './tamagui-text';
-import { colors } from './theme';
+import { Num, T } from './text';
+import { colors, space } from './theme';
 
 export type SyncState = 'saved' | 'pending' | 'offline';
 
@@ -106,42 +104,21 @@ function Level({ state }: { state: SyncState }) {
   // One animation drives both halves of the beam.
   const sweep = useSweep();
   return (
-    <XStack alignItems="center" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <YStack flex={1}>
+    <View style={styles.level} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={styles.half}>
         <LaserLine color={color} scale={sweep} from="end" />
-      </YStack>
-      <View
-        width={88}
-        height={88}
-        borderRadius="round"
-        borderWidth={1}
-        borderColor="rgba(255,255,255,0.12)"
-        alignItems="center"
-        justifyContent="center">
-        <View
-          width={58}
-          height={58}
-          borderRadius="round"
-          borderWidth={1}
-          borderColor="rgba(255,255,255,0.28)"
-          alignItems="center"
-          justifyContent="center">
-          <View
-            width={32}
-            height={32}
-            borderRadius="round"
-            backgroundColor={BEAM[state]}
-            boxShadow={`0 0 18px 2px ${color}`}
-            alignItems="center"
-            justifyContent="center">
+      </View>
+      <View style={[styles.ring, styles.outerRing]}>
+        <View style={[styles.ring, styles.innerRing]}>
+          <View style={[styles.ring, styles.core, { backgroundColor: color, boxShadow: `0 0 18px 2px ${color}` }]}>
             <MaterialCommunityIcons name={CORE_ICON[state]} size={20} color={colors.brand} />
           </View>
         </View>
       </View>
-      <YStack flex={1}>
+      <View style={styles.half}>
         <LaserLine color={color} scale={sweep} from="start" />
-      </YStack>
-    </XStack>
+      </View>
+    </View>
   );
 }
 
@@ -161,34 +138,29 @@ export function SiteStatus({
   readouts: Readout[];
 }) {
   return (
-    <YStack backgroundColor="brand" paddingBottom="lg" gap="md">
-      <YStack alignItems="center" paddingHorizontal="lg">
-        <Text variant="title" color="white" textAlign="center">
+    <View style={styles.stage}>
+      <View style={styles.who}>
+        {/* Stretched: shrink-wrapped Nastaliq gets its last word dropped on Android. */}
+        <T variant="title" style={styles.business}>
           {business}
-        </Text>
-        <XStack alignItems="center" gap="sm" flexWrap="wrap" justifyContent="center">
-          <Text variant="small" color="brandSoft">
+        </T>
+        <View style={styles.identity}>
+          <T variant="small" style={styles.onBrand}>
             {role}
-          </Text>
-          {email ? (
-            <Digits variant="small" color="brandSoft" fontSize={14}>
-              {email}
-            </Digits>
-          ) : null}
-        </XStack>
-      </YStack>
+          </T>
+          {email ? <Num style={[styles.onBrand, styles.email]}>{email}</Num> : null}
+        </View>
+      </View>
 
       {sync ? (
-        <YStack>
+        <View>
           <Level state={sync.state} />
-          <XStack alignItems="center" justifyContent="center" gap="sm" paddingHorizontal="lg">
-            {sync.headline}
-          </XStack>
-        </YStack>
+          <View style={styles.headline}>{sync.headline}</View>
+        </View>
       ) : null}
 
       <Readouts readouts={readouts} />
-    </YStack>
+    </View>
   );
 }
 
@@ -200,29 +172,57 @@ export interface Readout {
 /** Instrument readouts: each a value over its label, divided by thin rules. */
 function Readouts({ readouts }: { readouts: Readout[] }) {
   return (
-    <XStack justifyContent="center" paddingHorizontal="lg">
+    <View style={styles.readouts}>
       {readouts.map((r, i) => (
         <Fragment key={r.label}>
-          {i > 0 ? <View width={1} alignSelf="stretch" backgroundColor="rgba(255,255,255,0.18)" /> : null}
-          <YStack flex={1} alignItems="center" paddingHorizontal="sm">
-            <Digits variant="h2" bold color="white">
+          {i > 0 ? <View style={styles.rule} /> : null}
+          <View style={styles.readout}>
+            <Num bold style={styles.readoutValue}>
               {r.value}
-            </Digits>
-            <Text variant="small" color="brandSoft" textAlign="center">
+            </Num>
+            <T variant="small" style={[styles.onBrand, styles.readoutLabel]}>
               {r.label}
-            </Text>
-          </YStack>
+            </T>
+          </View>
         </Fragment>
       ))}
-    </XStack>
+    </View>
   );
 }
 
 /** The stage for the pages Settings opens: just the readouts, continuing the header. */
 export function ListStage({ readouts }: { readouts: Readout[] }) {
   return (
-    <YStack backgroundColor="brand" paddingTop="xs" paddingBottom="lg">
+    <View style={styles.listStage}>
       <Readouts readouts={readouts} />
-    </YStack>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  level: { flexDirection: 'row', alignItems: 'center' },
+  half: { flex: 1 },
+  ring: { borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  outerRing: { width: 88, height: 88, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  innerRing: { width: 58, height: 58, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
+  core: { width: 32, height: 32 },
+  stage: { backgroundColor: colors.brand, paddingBottom: space.lg, gap: space.md },
+  who: { alignItems: 'center', paddingHorizontal: space.lg },
+  business: { color: colors.white, textAlign: 'center', alignSelf: 'stretch' },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap', justifyContent: 'center' },
+  onBrand: { color: colors.brandSoft },
+  email: { fontSize: 14, lineHeight: 28 },
+  headline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+  },
+  readouts: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: space.lg },
+  rule: { width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.18)' },
+  readout: { flex: 1, alignItems: 'center', paddingHorizontal: space.sm },
+  readoutValue: { color: colors.white, fontSize: 18, lineHeight: 28 },
+  readoutLabel: { textAlign: 'center', alignSelf: 'stretch' },
+  listStage: { backgroundColor: colors.brand, paddingTop: space.xs, paddingBottom: space.lg },
+});

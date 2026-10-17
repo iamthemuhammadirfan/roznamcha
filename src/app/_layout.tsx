@@ -8,15 +8,12 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { TamaguiProvider } from '@tamagui/core';
-import { PortalProvider } from '@tamagui/portal';
 
 import { powersync } from '@/db';
 import { ensureDirection } from '@/i18n';
 import { ActiveProjectProvider } from '@/state/active-project';
 import { SessionProvider, useSession } from '@/state/session';
 import { AnimatedSplash } from '@/ui/animated-splash';
-import { tamaguiConfig } from '@/ui/tamagui.config';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -66,19 +63,13 @@ export default function RootLayout() {
   });
 
   return (
-    // The app is light-only (userInterfaceStyle: light), so the theme is fixed.
-    <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
-      {/* Host for Tamagui dialogs, drawn above everything else. */}
-      <PortalProvider shouldAddRootHost>
-        <PowerSyncContext value={powersync}>
-          <SessionProvider>
-            <ActiveProjectProvider>
-              <StatusBar style="light" />
-              <Gate fontsLoaded={fontsLoaded} />
-            </ActiveProjectProvider>
-          </SessionProvider>
-        </PowerSyncContext>
-      </PortalProvider>
-    </TamaguiProvider>
+    <PowerSyncContext value={powersync}>
+      <SessionProvider>
+        <ActiveProjectProvider>
+          <StatusBar style="light" />
+          <Gate fontsLoaded={fontsLoaded} />
+        </ActiveProjectProvider>
+      </SessionProvider>
+    </PowerSyncContext>
   );
 }
