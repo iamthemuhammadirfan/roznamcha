@@ -42,12 +42,12 @@ export default function TeamMember() {
     setBusy(true);
     setError(null);
     const result = resetting
-      ? await resetMunshiPassword(businessId, params.userId!, password)
+      ? { error: await resetMunshiPassword(businessId, params.userId!, password), restored: false }
       : await createMunshi(businessId, email, password);
     setBusy(false);
-    if (result) return setError(result);
+    if (result.error) return setError(result.error);
     router.back();
-    Alert.alert(resetting ? t.team.resetDone : t.team.created);
+    Alert.alert(resetting ? t.team.resetDone : result.restored ? t.team.restored : t.team.created);
   }
 
   const shown = error ?? local;
@@ -63,7 +63,7 @@ export default function TeamMember() {
       ) : (
         <Field
           label={t.auth.email}
-          hint={t.team.emailHint}
+          hint={`${t.team.emailHint} ${t.team.restoreHint}`}
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"

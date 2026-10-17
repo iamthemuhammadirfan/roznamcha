@@ -91,11 +91,13 @@ export default function Settings() {
             </SettingsSection>
           ) : null}
 
-          {isOwner && !localMode ? (
-            <SettingsSection title={t.settings.account}>
+          <SettingsSection title={t.settings.account}>
+            <SettingsRow icon="account-circle-outline" label={t.settings.myAccount} onPress={() => router.push('/account')} />
+            {/* Munshi accounts are managed on the server, so not in local mode. */}
+            {isOwner && !localMode ? (
               <SettingsRow icon="account-group-outline" label={t.settings.team} onPress={() => router.push('/team')} />
-            </SettingsSection>
-          ) : null}
+            ) : null}
+          </SettingsSection>
 
           <SettingsSection title={t.settings.app}>
             <SettingsRow

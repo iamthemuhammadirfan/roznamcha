@@ -24,6 +24,7 @@ export const membership = sqliteTable('membership', {
   role: text('role').notNull(),
   /** Copied from auth.users by the server, so Settings can say who each member is. */
   email: text('email'),
+  created_at: text('created_at'),
 });
 
 export const project = sqliteTable('project', {

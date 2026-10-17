@@ -40,6 +40,13 @@ export const en: Strings = {
     created: 'Munshi created. They sign in with this email and password.',
     resetDone: 'Password changed. The munshi now signs in with the new password.',
     online: 'This needs internet.',
+    empty: 'No munshi yet. Add one with the button below.',
+    since: 'Since',
+    revoke: 'Remove access',
+    revokeConfirm: 'This munshi can no longer sign in. Everything they entered stays saved.',
+    revoked: 'Access removed. Everything they entered is still saved.',
+    restored: 'Munshi added back. They sign in with the new password.',
+    restoreHint: 'A removed munshi can be added back with the same email.',
     errors: {
       offline: 'No internet. Check the connection and try again.',
       unauthorized: 'Please sign in again.',
@@ -346,6 +353,8 @@ export const en: Strings = {
     languageHelp: 'The app restarts when you change language. Workers always get the receipt in Urdu.',
     team: 'Team',
     you: 'You',
+    myAccount: 'My account',
+    role: 'Role',
   },
   update: {
     checkError: 'Couldn’t check',

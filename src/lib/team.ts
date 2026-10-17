@@ -21,10 +21,14 @@ export const MIN_PASSWORD = 6;
 
 const KNOWN: TeamError[] = ['unauthorized', 'not_owner', 'not_munshi', 'invalid_email', 'weak_password', 'exists'];
 
-async function call(body: Record<string, string>): Promise<TeamError | null> {
-  if (!supabase) return 'offline';
-  const { error } = await supabase.functions.invoke('team', { body });
-  if (!error) return null;
+async function call(body: Record<string, string>): Promise<{ error: TeamError | null; restored?: boolean }> {
+  if (!supabase) return { error: 'offline' };
+  const { data, error } = await supabase.functions.invoke<{ restored?: boolean }>('team', { body });
+  if (!error) return { error: null, restored: Boolean(data?.restored) };
+  return { error: await toTeamError(error) };
+}
+
+async function toTeamError(error: unknown): Promise<TeamError> {
   if (error instanceof FunctionsFetchError) return 'offline';
   if (error instanceof FunctionsHttpError) {
     const code = await error.context
@@ -36,10 +40,16 @@ async function call(body: Record<string, string>): Promise<TeamError | null> {
   return 'failed';
 }
 
+/** `restored` when the email was a removed munshi, now back with this password. */
 export function createMunshi(businessId: string, email: string, password: string) {
   return call({ action: 'create', businessId, email: email.trim(), password });
 }
 
-export function resetMunshiPassword(businessId: string, userId: string, password: string) {
-  return call({ action: 'reset', businessId, userId, password });
+export async function resetMunshiPassword(businessId: string, userId: string, password: string) {
+  return (await call({ action: 'reset', businessId, userId, password })).error;
+}
+
+/** Removes their access to this business; everything they entered stays. */
+export async function revokeMunshi(businessId: string, userId: string) {
+  return (await call({ action: 'revoke', businessId, userId })).error;
 }
