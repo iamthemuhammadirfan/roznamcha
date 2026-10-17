@@ -51,7 +51,8 @@ export function StatusPicker({
   onChange,
   disabled,
 }: {
-  value: DayStatus;
+  /** null: not marked yet, so nothing is selected. */
+  value: DayStatus | null;
   onChange: (s: DayStatus) => void;
   disabled?: boolean;
 }) {

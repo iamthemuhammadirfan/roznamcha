@@ -25,8 +25,9 @@ function asDayStatus(s: string): DayStatus {
 }
 
 /**
- * One day's haazri for the active project. Everyone opens pre-marked present — absence
- * is the exception, so the munshi only taps the few who were half day or away.
+ * One day's haazri for the active project. Nobody is pre-marked: the munshi taps full,
+ * half or absent for each worker, so a save never records a day nobody looked at. Only
+ * marked rows are saved; the rest stay unmarked and the day shows as partly done.
  */
 export default function AttendanceDay() {
   const params = useLocalSearchParams<{ date?: string }>();
@@ -51,9 +52,10 @@ export default function AttendanceDay() {
   // it would reject. Unmarked days can still be filled in.
   const lockedOld = role !== 'owner' && back > 7;
 
-  function statusOf(a: AssignmentWithWorker): DayStatus {
+  /** null until the munshi picks one (or one was saved earlier). */
+  function statusOf(a: AssignmentWithWorker): DayStatus | null {
     const saved = existing.get(a.id);
-    return draft[a.id] ?? (saved ? asDayStatus(saved.status) : 'full');
+    return draft[a.id] ?? (saved ? asDayStatus(saved.status) : null);
   }
 
   function rateOf(a: AssignmentWithWorker) {
@@ -64,22 +66,31 @@ export default function AttendanceDay() {
     return lockedOld && existing.has(a.id);
   }
 
+  // Marked rows whose status differs from what's saved (or that have nothing saved).
   const changes = people.filter((a) => {
-    if (isLocked(a)) return false;
+    if (isLocked(a) || !(a.id in draft)) return false;
     const saved = existing.get(a.id);
-    return !saved || asDayStatus(saved.status) !== statusOf(a);
+    return !saved || asDayStatus(saved.status) !== draft[a.id];
   });
 
-  const marks = people.map((a) => ({ status: statusOf(a) }));
-  const summary = summarize(marks);
-  const wages = people.reduce(
-    (s, a) => s + attendanceEarning({ status: statusOf(a), rate_applied_paisa: rateOf(a), overtime_hours: 0 }),
-    0,
-  );
+  const marked = people.flatMap((a) => {
+    const status = statusOf(a);
+    return status ? [{ status, rate_applied_paisa: rateOf(a), overtime_hours: 0 }] : [];
+  });
+  const summary = summarize(marked);
+  const unmarked = people.length - marked.length;
+  const wages = marked.reduce((s, m) => s + attendanceEarning(m), 0);
 
   function set(a: AssignmentWithWorker, status: DayStatus) {
     if (isLocked(a)) return Alert.alert(t.attendance.lockedOld);
-    setDraft((d) => ({ ...d, [a.id]: status }));
+    setDraft((d) => {
+      // Tapping a fresh pick again clears it, so a wrong tap can be undone before saving.
+      if (d[a.id] === status && !existing.has(a.id)) {
+        const { [a.id]: _cleared, ...rest } = d;
+        return rest;
+      }
+      return { ...d, [a.id]: status };
+    });
   }
 
   async function commit() {
@@ -88,7 +99,7 @@ export default function AttendanceDay() {
       await saveAttendance(
         ctx,
         date,
-        changes.map((a) => ({ assignmentId: a.id, status: statusOf(a) })),
+        changes.map((a) => ({ assignmentId: a.id, status: draft[a.id] })),
       );
       router.back();
     } catch (e) {
@@ -128,6 +139,7 @@ export default function AttendanceDay() {
           <StatusCount status="half" n={summary.half} />
           <StatusCount status="absent" n={summary.absent} />
         </Row>
+        {unmarked > 0 ? <UnmarkedCount n={unmarked} /> : null}
         <Row style={{ justifyContent: 'space-between' }}>
           <T variant="small" style={{ flex: 1 }}>
             {t.attendance.dayWages}
@@ -151,9 +163,7 @@ export default function AttendanceDay() {
         ItemSeparatorComponent={() => <View style={{ height: space.sm }} />}
         renderItem={({ item: a }) => {
           const status = statusOf(a);
-          // Only rows the munshi touched; an unmarked day's default "present" is covered by
-          // the footer count, so a fresh sheet isn't striped from top to bottom.
-          const edited = a.id in draft && changes.includes(a);
+          const edited = changes.includes(a);
           return (
             <View style={[styles.row, edited && styles.unsaved, isLocked(a) && { opacity: 0.6 }]}>
               <View style={{ flex: 1 }}>
@@ -165,11 +175,17 @@ export default function AttendanceDay() {
                     {t.worker.son} {a.worker_father_name}
                   </T>
                 ) : null}
-                <Money
-                  paisa={attendanceEarning({ status, rate_applied_paisa: rateOf(a), overtime_hours: 0 })}
-                  size={14}
-                  color={colors.muted}
-                />
+                {status ? (
+                  <Money
+                    paisa={attendanceEarning({ status, rate_applied_paisa: rateOf(a), overtime_hours: 0 })}
+                    size={14}
+                    color={colors.muted}
+                  />
+                ) : (
+                  <T variant="small" style={{ color: colors.pending }}>
+                    {t.attendance.notMarked}
+                  </T>
+                )}
               </View>
               <StatusPicker value={status} onChange={(s) => set(a, s)} disabled={isLocked(a)} />
             </View>
@@ -178,6 +194,11 @@ export default function AttendanceDay() {
       />
       {people.length > 0 ? (
         <View style={styles.footer}>
+          {unmarked > 0 ? (
+            <Row style={{ justifyContent: 'center' }}>
+              <UnmarkedCount n={unmarked} />
+            </Row>
+          ) : null}
           {changes.length > 0 ? (
             <Row style={{ justifyContent: 'center' }}>
               <Num bold style={{ color: colors.pending }}>
@@ -190,7 +211,8 @@ export default function AttendanceDay() {
           ) : null}
           <Button
             // No count in the label: digits inside an Urdu string get reordered by bidi.
-            label={changes.length > 0 ? t.attendance.save : t.attendance.saved}
+            // "Saved" only once everyone is marked and nothing is pending.
+            label={changes.length === 0 && unmarked === 0 ? t.attendance.saved : t.attendance.save}
             onPress={save}
             busy={busy}
             disabled={changes.length === 0}
@@ -198,6 +220,20 @@ export default function AttendanceDay() {
         </View>
       ) : null}
     </SafeAreaView>
+  );
+}
+
+/** "3 ابھی نہیں لگی": workers with no mark yet for the day. */
+function UnmarkedCount({ n }: { n: number }) {
+  return (
+    <Row>
+      <Num bold style={{ fontSize: 20, color: colors.pending }}>
+        {n}
+      </Num>
+      <T variant="small" style={{ color: colors.pending }}>
+        {t.attendance.notMarked}
+      </T>
+    </Row>
   );
 }
 

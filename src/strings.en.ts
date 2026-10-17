@@ -226,7 +226,7 @@ export const en: Strings = {
     full: 'Full day',
     half: 'Half day',
     absent: 'Absent',
-    tapHelp: 'Everyone starts as present. Tap the half-day or absent mark beside a name.',
+    tapHelp: 'Tap one mark beside each name: full day, half day or absent.',
     unsavedChanges: 'changes not saved yet',
     save: 'Save attendance',
     saved: 'Attendance saved',
