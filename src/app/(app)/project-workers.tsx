@@ -52,7 +52,7 @@ export default function WorkersOnProject() {
 function WorkerRow({ a, balance }: { a: AssignmentWithWorker; balance: number }) {
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/worker/[id]', params: { id: a.worker_id } })}
+      onPress={() => router.push({ pathname: '/worker/[id]', params: { id: a.worker_id, projectId: a.project_id } })}
       style={({ pressed }) => [styles.row, !a.is_active && { opacity: 0.6 }, pressed && { backgroundColor: colors.brandSoft }]}>
       <Row style={{ alignItems: 'flex-start' }}>
         <WorkerAvatar name={a.worker_name} />

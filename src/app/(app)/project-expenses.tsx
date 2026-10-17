@@ -215,7 +215,7 @@ export default function ProjectExpenses() {
               it.type === 'labour' ? (
                 <Pressable
                   key={it.id}
-                  onPress={() => it.workerId && router.push({ pathname: '/worker/[id]', params: { id: it.workerId } })}
+                  onPress={() => it.workerId && router.push({ pathname: '/worker/[id]', params: { id: it.workerId, projectId: pid } })}
                   style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.brandSoft }]}>
                   <MaterialCommunityIcons name="hand-coin-outline" size={24} color={colors.siteInk} />
                   <View style={{ flex: 1 }}>

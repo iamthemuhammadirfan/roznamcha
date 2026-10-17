@@ -278,6 +278,7 @@ export const ur = {
     earned: 'کمائی',
     grandTotal: 'تمام پراجیکٹ کا کل',
     grandTotalHelp: 'ہر پراجیکٹ کا حساب الگ ہے۔ یہ صرف مجموعہ ہے۔',
+    otherProjects: 'دوسرے پراجیکٹس پر بھی',
   },
   balance: {
     owedToWorker: 'ہمارے ذمے',

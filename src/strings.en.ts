@@ -282,6 +282,7 @@ export const en: Strings = {
     earned: 'Earned',
     grandTotal: 'Total across all projects',
     grandTotalHelp: 'Each project is accounted separately. This is only the sum.',
+    otherProjects: 'Also on other projects',
   },
   balance: {
     owedToWorker: 'We owe',

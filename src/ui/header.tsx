@@ -17,9 +17,18 @@ import { colors, space } from './theme';
  * Screen title plus the active project's code. The worst bug this app can have is an
  * advance recorded against the wrong project, so the code is always visible.
  */
-export function HeaderTitle({ title, scoped = true }: { title: string; scoped?: boolean }) {
+export function HeaderTitle({
+  title,
+  scoped = true,
+  projectId: shown,
+}: {
+  title: string;
+  scoped?: boolean;
+  /** Show this project's code instead of the active one's. */
+  projectId?: string;
+}) {
   const { projectId } = useActiveProject();
-  const p = useProject(scoped ? (projectId ?? null) : null);
+  const p = useProject(shown ?? (scoped ? (projectId ?? null) : null));
   return (
     <View style={styles.row}>
       {p ? (
