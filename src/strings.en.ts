@@ -178,7 +178,7 @@ export const en: Strings = {
     categoryRequired: 'Choose an expense type',
     today: 'Today',
     month: 'This month',
-    total: 'Total spent',
+    sinceStart: 'Since the start',
     empty: 'No expenses yet',
     byCategory: 'By type',
     cancel: 'Cancel expense',

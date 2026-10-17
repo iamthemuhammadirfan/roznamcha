@@ -38,10 +38,8 @@ export default function ProjectDashboard() {
   const balances = balancesByAssignment(attendance, entries);
   // Spending = cash handed to workers + site expenses, same as the expenses screen.
   const siteRows = useProjectExpenses(id);
-  const expenses = {
-    month: projectSpend(siteRows, entries, presetRange('month', today())).total,
-    total: projectSpend(siteRows, entries, presetRange('all', today())).total,
-  };
+  const month = projectSpend(siteRows, entries, presetRange('month', today()));
+  const allTime = projectSpend(siteRows, entries, presetRange('all', today())).total;
 
   if (!project) return <Empty text={t.project.empty} />;
 
@@ -105,22 +103,7 @@ export default function ProjectDashboard() {
         </Card>
       ) : null}
 
-      <Card onPress={() => router.push('/project-expenses')}>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <Row style={{ flexShrink: 1 }}>
-            <MaterialCommunityIcons name="receipt-text-outline" size={24} color={colors.brand} />
-            <T variant="h2">{t.expense.title}</T>
-          </Row>
-          <Money paisa={expenses.month} size={20} />
-        </Row>
-        <Row style={{ justifyContent: 'space-between' }}>
-          <T variant="small">{t.expense.month}</T>
-          <Row>
-            <T variant="small">{t.expense.total}</T>
-            <Money paisa={expenses.total} size={15} color={colors.muted} />
-          </Row>
-        </Row>
-      </Card>
+      <SpendCard labour={month.labour} site={month.site} allTime={allTime} />
 
       <Card onPress={() => router.push('/project-workers')}>
         <Row style={{ justifyContent: 'space-between' }}>
@@ -134,6 +117,62 @@ export default function ProjectDashboard() {
         </Row>
       </Card>
     </Screen>
+  );
+}
+
+/**
+ * What the project has cost: this month as the headline, split into cash paid to workers
+ * and site expenses (a bar plus a legend), then the running total since the start on its
+ * own line so the two figures are never read as one. Opens the full expenses screen.
+ */
+function SpendCard({ labour, site, allTime }: { labour: number; site: number; allTime: number }) {
+  const month = labour + site;
+  return (
+    <Card onPress={() => router.push('/project-expenses')}>
+      <Row>
+        <MaterialCommunityIcons name="receipt-text-outline" size={24} color={colors.brand} />
+        <T variant="h2" style={{ flex: 1 }}>
+          {t.expense.title}
+        </T>
+        {/* Forced RTL mirrors the layout but not the glyph, so pick the one that points inward. */}
+        <MaterialCommunityIcons name={isUrdu ? 'chevron-left' : 'chevron-right'} size={24} color={colors.border} />
+      </Row>
+
+      <View>
+        <T variant="small">{t.expense.month}</T>
+        <Money paisa={month} size={28} />
+      </View>
+
+      {month > 0 ? (
+        <>
+          {/* Labour and site as shares of the month, side by side in one bar. */}
+          <View style={styles.bar}>
+            {labour > 0 ? <View style={{ flex: labour, backgroundColor: colors.brand }} /> : null}
+            {site > 0 ? <View style={{ flex: site, backgroundColor: colors.site }} /> : null}
+          </View>
+          <SpendLine color={colors.brand} label={t.expense.labour} paisa={labour} />
+          <SpendLine color={colors.site} label={t.expense.site} paisa={site} />
+        </>
+      ) : null}
+
+      <View style={styles.sinceStart}>
+        <T variant="small" style={{ flex: 1 }}>
+          {t.expense.sinceStart}
+        </T>
+        <Money paisa={allTime} size={18} color={colors.muted} />
+      </View>
+    </Card>
+  );
+}
+
+/** One legend row under the bar: its colour, what it is, how much. */
+function SpendLine({ color, label, paisa }: { color: string; label: string; paisa: number }) {
+  return (
+    <Row>
+      <View style={[styles.dot, { backgroundColor: color }]} />
+      <T style={{ flex: 1 }}>{label}</T>
+      <Money paisa={paisa} size={17} />
+    </Row>
   );
 }
 
@@ -180,4 +219,14 @@ const styles = StyleSheet.create({
   },
   tilePrimary: { backgroundColor: colors.brand },
   tileSecondary: { backgroundColor: colors.card, borderWidth: 2, borderColor: colors.brand },
+  bar: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', backgroundColor: colors.bg, gap: 2 },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  sinceStart: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    paddingTop: space.sm,
+  },
 });
