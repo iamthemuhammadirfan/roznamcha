@@ -201,6 +201,41 @@ export function Banner({ text, tone = 'pending' }: { text: string; tone?: 'pendi
   );
 }
 
+/** A small secondary action: icon and label in a pill, two to a row. */
+export function Tool({
+  icon,
+  label,
+  danger,
+  disabled,
+  onPress,
+}: {
+  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
+  label: string;
+  danger?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const fg = danger ? colors.recover : colors.brand;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tool,
+        { borderColor: fg },
+        pressed && { backgroundColor: colors.brandSoft },
+        disabled && { opacity: 0.5 },
+      ]}>
+      <MaterialCommunityIcons name={icon} size={20} color={fg} />
+      <T variant="small" style={{ flex: 1, color: fg }}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   screenPad: { padding: space.lg, gap: space.md, flexGrow: 1 },
@@ -260,4 +295,14 @@ const styles = StyleSheet.create({
   choiceSelected: { backgroundColor: colors.brand },
   empty: { padding: space.xl, alignItems: 'center' },
   banner: { borderRadius: 10, padding: space.md },
+  tool: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    paddingHorizontal: space.md,
+  },
 });

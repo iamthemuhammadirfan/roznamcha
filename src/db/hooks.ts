@@ -11,6 +11,7 @@ import {
   attendance,
   expenseCategory,
   ledgerEntry,
+  membership,
   project,
   projectExpense,
   rejectedWrite,
@@ -47,6 +48,13 @@ function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
 }
 
 // ─── Projects ────────────────────────────────────────────────────────────────
+
+/** Everyone in the business, owner first ('owner' sorts after 'munshi'). */
+export function useMembers() {
+  return useLive<typeof membership.$inferSelect>(
+    db.select().from(membership).orderBy(desc(membership.role), asc(membership.email)),
+  );
+}
 
 export function useProjects() {
   return useLive<typeof project.$inferSelect>(db.select().from(project).orderBy(asc(project.code)));

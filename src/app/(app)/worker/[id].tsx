@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { type ComponentProps, useState } from 'react';
+import { useState } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
@@ -22,7 +22,7 @@ import { useMember, useWriteContext } from '@/state/session';
 import { entryKindLabel, isUrdu, lang, t, tradeLabel } from '@/i18n';
 import { StatusCount } from '@/ui/attendance';
 import { BalanceChip } from '@/ui/balance-chip';
-import { Banner, Button, Card, Empty, Field, Row, Screen } from '@/ui/controls';
+import { Banner, Button, Card, Empty, Field, Row, Screen, Tool } from '@/ui/controls';
 import { DateField } from '@/ui/date-field';
 import { HeaderTitle } from '@/ui/header';
 import { CodePlate, SiteBoard } from '@/ui/site-board';
@@ -240,32 +240,6 @@ function ProjectBlock({
   );
 }
 
-/** A small secondary action: icon and label in a pill, two to a row. */
-function Tool({
-  icon,
-  label,
-  danger,
-  onPress,
-}: {
-  icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
-  danger?: boolean;
-  onPress: () => void;
-}) {
-  const fg = danger ? colors.recover : colors.brand;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [styles.tool, { borderColor: fg }, pressed && { backgroundColor: colors.brandSoft }]}>
-      <MaterialCommunityIcons name={icon} size={20} color={fg} />
-      <T variant="small" style={{ flex: 1, color: fg }}>
-        {label}
-      </T>
-    </Pressable>
-  );
-}
-
 export default function WorkerDetail() {
   // `projectId` when opened from inside a project: show only that project's ledger.
   const { id, projectId } = useLocalSearchParams<{ id: string; projectId?: string }>();
@@ -412,16 +386,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
     paddingTop: space.sm,
-  },
-  tool: {
-    flex: 1,
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    paddingHorizontal: space.md,
   },
   others: {
     minHeight: 56,
