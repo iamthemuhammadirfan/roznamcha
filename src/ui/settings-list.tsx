@@ -1,52 +1,36 @@
 // Settings list: plain full-width rows under a section title, with a divider between
 // rows that starts after the icon. No boxes — the stage above carries the weight.
-// Adding a setting is one <SettingsRow>. Built with Tamagui (Settings only).
+// Adding a setting is one <SettingsRow>.
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Children, type ComponentProps, Fragment, type ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
-import { styled, View } from '@tamagui/core';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { isUrdu } from '@/i18n';
 
-import { XStack, YStack } from './tamagui.config';
-import { Text } from './tamagui-text';
+import { T } from './text';
 import { colors, space, TOUCH_MIN } from './theme';
 
 export type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const ICON = 26;
 
-const Divider = styled(View, {
-  height: StyleSheet.hairlineWidth,
-  backgroundColor: 'border',
-  marginStart: space.lg + ICON + space.lg,
-});
-
-const RowFrame = styled(XStack, {
-  minHeight: TOUCH_MIN,
-  alignItems: 'center',
-  gap: 'lg',
-  paddingHorizontal: 'lg',
-  paddingVertical: 'sm',
-});
-
 export function SettingsSection({ title, children }: { title?: string; children: ReactNode }) {
   const rows = Children.toArray(children);
   if (rows.length === 0) return null;
   return (
-    <YStack>
+    <View>
       {title ? (
-        <Text variant="small" paddingHorizontal="lg">
+        <T variant="small" style={styles.title}>
           {title}
-        </Text>
+        </T>
       ) : null}
       {rows.map((row, i) => (
         <Fragment key={i}>
-          {i > 0 ? <Divider /> : null}
+          {i > 0 ? <View style={styles.divider} /> : null}
           {row}
         </Fragment>
       ))}
-    </YStack>
+    </View>
   );
 }
 
@@ -70,23 +54,41 @@ export function SettingsRow({
   const danger = tone === 'danger';
   const fg = danger ? colors.recover : colors.brand;
   return (
-    <RowFrame
-      role={onPress ? 'button' : undefined}
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
       disabled={!onPress}
       onPress={onPress}
-      backgroundColor={onPress ? { default: 'transparent', press: 'brandSoft' } : undefined}>
+      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.brandSoft }]}>
       <MaterialCommunityIcons name={icon} size={ICON} color={fg} />
-      <YStack flex={1} flexShrink={1}>
-        <Text variant="bodyBold" color={danger ? 'recover' : 'text'}>
+      <View style={styles.text}>
+        <T variant="bodyBold" style={danger && { color: colors.recover }}>
           {label}
-        </Text>
-        {typeof detail === 'string' ? <Text variant="small">{detail}</Text> : detail}
-      </YStack>
-      {typeof value === 'string' ? <Text color="muted">{value}</Text> : value}
+        </T>
+        {typeof detail === 'string' ? <T variant="small">{detail}</T> : detail}
+      </View>
+      {typeof value === 'string' ? <T style={{ color: colors.muted }}>{value}</T> : value}
       {onPress && !danger ? (
         // Forced RTL mirrors the layout but not the glyph, so pick the one that points inward.
         <MaterialCommunityIcons name={isUrdu ? 'chevron-left' : 'chevron-right'} size={24} color={colors.border} />
       ) : null}
-    </RowFrame>
+    </Pressable>
   );
 }
+
+const styles = StyleSheet.create({
+  title: { paddingHorizontal: space.lg },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginStart: space.lg + ICON + space.lg,
+  },
+  row: {
+    flexDirection: 'row',
+    minHeight: TOUCH_MIN,
+    alignItems: 'center',
+    gap: space.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
+  text: { flex: 1, flexShrink: 1 },
+});

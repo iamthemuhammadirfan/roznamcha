@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { usePendingUploadCount } from '@/db/hooks';
@@ -11,12 +11,11 @@ import { formatDay, toDay } from '@/lib/dates';
 import { RELEASE } from '@/release';
 import { useMember, useSession } from '@/state/session';
 import { lang, type Lang, setLanguage, t } from '@/i18n';
+import { ChoiceDialog } from '@/ui/choice-dialog';
 import { Banner } from '@/ui/controls';
 import { SettingsRow, SettingsSection } from '@/ui/settings-list';
 import { LaserLine, SiteStatus, type SyncState, useProgress } from '@/ui/site-status';
-import { XStack, YStack } from '@/ui/tamagui.config';
-import { ChoiceDialog } from '@/ui/tamagui-dialog';
-import { Digits, Text } from '@/ui/tamagui-text';
+import { Num, T } from '@/ui/text';
 import { colors, space } from '@/ui/theme';
 
 // Each language is named in itself, so someone who can't read the current UI can still
@@ -40,17 +39,17 @@ export default function Settings() {
   const headline =
     pending > 0 ? (
       <>
-        <Digits variant="title" bold color="site">
+        <Num bold style={styles.pendingCount}>
           {pending}
-        </Digits>
-        <Text variant="title" color="white">
+        </Num>
+        <T variant="title" style={styles.onBrand}>
           {t.sync.pending}
-        </Text>
+        </T>
       </>
     ) : (
-      <Text variant="title" color="white" textAlign="center">
+      <T variant="title" style={[styles.onBrand, styles.centred]}>
         {!status.hasSynced ? t.sync.firstSync : status.connected ? t.sync.synced : t.sync.offline}
-      </Text>
+      </T>
     );
 
   // What exactly this phone runs: the release, the installed APK, and the date of the
@@ -64,8 +63,8 @@ export default function Settings() {
   ];
 
   return (
-    <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: space.xl }} showsVerticalScrollIndicator={false}>
+    <SafeAreaView edges={['bottom']} style={styles.screen}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <SiteStatus
           business={member.businessName}
           role={t.role[member.role]}
@@ -74,11 +73,11 @@ export default function Settings() {
           readouts={readouts}
         />
 
-        <YStack paddingTop="lg" gap="lg">
+        <View style={styles.sections}>
           {localMode ? (
-            <YStack paddingHorizontal="lg">
+            <View style={styles.inset}>
               <Banner text={t.app.localMode} />
-            </YStack>
+            </View>
           ) : null}
 
           {isOwner ? (
@@ -104,10 +103,10 @@ export default function Settings() {
 
           {/* Shown in Urdu-agnostic form on purpose: this is for whoever is debugging. */}
           {!localMode && status.downloadError ? (
-            <Digits variant="small" color="recover" paddingHorizontal="lg">{`download: ${status.downloadError.message}`}</Digits>
+            <Num style={[styles.debug, styles.inset]}>{`download: ${status.downloadError.message}`}</Num>
           ) : null}
           {!localMode && status.uploadError ? (
-            <Digits variant="small" color="recover" paddingHorizontal="lg">{`upload: ${status.uploadError.message}`}</Digits>
+            <Num style={[styles.debug, styles.inset]}>{`upload: ${status.uploadError.message}`}</Num>
           ) : null}
 
           {!localMode ? (
@@ -115,7 +114,7 @@ export default function Settings() {
               <SettingsRow icon="logout" label={t.auth.signOut} tone="danger" onPress={() => setDialog('signOut')} />
             </SettingsSection>
           ) : null}
-        </YStack>
+        </View>
       </ScrollView>
 
       {/* Both languages, the current one marked: picking it again just closes. */}
@@ -185,7 +184,7 @@ function UpdateCheckRow() {
         label={isDownloading ? t.update.downloading : t.update.checking}
         value={
           isDownloading ? (
-            <Digits bold color="brand">{`${Math.round((downloadProgress ?? 0) * 100)}%`}</Digits>
+            <Num bold style={{ color: colors.brand }}>{`${Math.round((downloadProgress ?? 0) * 100)}%`}</Num>
           ) : (
             <ActivityIndicator color={colors.brand} />
           )
@@ -195,10 +194,10 @@ function UpdateCheckRow() {
     if (!isDownloading) return row;
     // The stage's laser beam again, drawn as far as the download has got.
     return (
-      <YStack>
+      <View>
         {row}
         <LaserLine color={colors.owed} scale={progress} />
-      </YStack>
+      </View>
     );
   }
   const last = lastCheckForUpdateTimeSinceRestart;
@@ -210,29 +209,43 @@ function UpdateCheckRow() {
         failure !== null ? (
           // Only blame the internet when the error is actually about the network.
           /network|internet|connect|timeout|host|offline/i.test(failure) ? (
-            <Text variant="small" color="recover">
+            <T variant="small" style={styles.failed}>
               {t.update.checkFailed}
-            </Text>
+            </T>
           ) : (
-            <YStack>
-              <Text variant="small" color="recover">
+            <View>
+              <T variant="small" style={styles.failed}>
                 {t.update.checkError}
-              </Text>
-              <Digits variant="small" numberOfLines={2}>
+              </T>
+              <Num numberOfLines={2} style={styles.small}>
                 {failure}
-              </Digits>
-            </YStack>
+              </Num>
+            </View>
           )
         ) : last ? (
-          <XStack alignItems="center" gap="xs">
-            <Text variant="small">{t.update.upToDate}</Text>
-            <Digits variant="small">
-              {last.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-            </Digits>
-          </XStack>
+          <View style={styles.lastCheck}>
+            <T variant="small">{t.update.upToDate}</T>
+            <Num style={styles.small}>{last.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</Num>
+          </View>
         ) : undefined
       }
       onPress={check}
     />
   );
 }
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.bg },
+  scroll: { flexGrow: 1, paddingBottom: space.xl },
+  sections: { paddingTop: space.lg, gap: space.lg },
+  inset: { paddingHorizontal: space.lg },
+  onBrand: { color: colors.white },
+  // Stretched: shrink-wrapped Nastaliq gets its last word dropped on Android.
+  centred: { textAlign: 'center', alignSelf: 'stretch' },
+  pendingCount: { color: colors.site, fontSize: 28, lineHeight: 36 },
+  // Digits at the small size, muted like T's small variant.
+  small: { fontSize: 12, lineHeight: 28, color: colors.muted },
+  debug: { fontSize: 12, lineHeight: 28, color: colors.recover },
+  failed: { color: colors.recover },
+  lastCheck: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+});

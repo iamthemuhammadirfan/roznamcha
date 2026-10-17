@@ -1,11 +1,9 @@
-// Built with Tamagui (Settings only).
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { View } from '@tamagui/core';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ListInput } from './list-group';
-import { XStack, YStack } from './tamagui.config';
-import { Text } from './tamagui-text';
-import { colors } from './theme';
+import { T } from './text';
+import { colors, space } from './theme';
 
 /**
  * Type a name, tap plus — for short owner-managed lists (trades, expense types). Lives in
@@ -30,38 +28,42 @@ export function AddBar({
 }) {
   const empty = !value.trim() || Boolean(blocked);
   return (
-    <YStack gap="xs">
+    <View style={styles.bar}>
       {blocked ? (
-        <Text variant="small" color="pending" paddingHorizontal="md">
+        <T variant="small" style={styles.blocked}>
           {blocked}
-        </Text>
+        </T>
       ) : null}
-      <XStack alignItems="center" gap="sm">
+      <View style={styles.row}>
         <ListInput
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="muted"
           onSubmitEditing={() => !empty && onAdd()}
           returnKeyType="done"
-          minHeight={56}
-          borderRadius="round"
+          style={styles.input}
         />
-        <View
-          role="button"
-          aria-label={addLabel}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={addLabel}
           disabled={empty}
           onPress={onAdd}
-          width={56}
-          height={56}
-          borderRadius="round"
-          alignItems="center"
-          justifyContent="center"
-          opacity={empty ? 0.4 : 1}
-          backgroundColor={{ default: 'brand', press: 'siteInk' }}>
+          style={({ pressed }) => [
+            styles.add,
+            { backgroundColor: pressed ? colors.siteInk : colors.brand },
+            empty && { opacity: 0.4 },
+          ]}>
           <MaterialCommunityIcons name="plus" size={30} color={colors.white} />
-        </View>
-      </XStack>
-    </YStack>
+        </Pressable>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: { gap: space.xs },
+  blocked: { color: colors.pending, paddingHorizontal: space.md },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  input: { minHeight: 56, borderRadius: 999 },
+  add: { width: 56, height: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+});

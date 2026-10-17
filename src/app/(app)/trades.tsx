@@ -7,10 +7,11 @@ import type { Trade } from '@/db/schema';
 import { t, tradeLabel } from '@/i18n';
 import { useMember, useWriteContext } from '@/state/session';
 import { AddBar } from '@/ui/add-bar';
+import { ChoiceDialog } from '@/ui/choice-dialog';
+import { Empty } from '@/ui/controls';
 import { EditRow, IconAction, ListRow, SectionTitle } from '@/ui/list-group';
+import { ListBanner, ListScreen } from '@/ui/list-screen';
 import { ListStage, useSweep } from '@/ui/site-status';
-import { ChoiceDialog } from '@/ui/tamagui-dialog';
-import { Banner, Empty, ListScreen } from '@/ui/tamagui-screen';
 
 const fold = (s: string) => s.trim().toLowerCase();
 
@@ -41,7 +42,7 @@ export default function TradesScreen() {
   if (role !== 'owner') {
     return (
       <ListScreen>
-        <Banner text={t.trades.ownerOnly} />
+        <ListBanner text={t.trades.ownerOnly} />
       </ListScreen>
     );
   }
@@ -109,7 +110,7 @@ export default function TradesScreen() {
                 { label: t.trades.workers, value: String(workers) },
               ]}
             />
-            {error ? <Banner tone="recover" text={error} /> : null}
+            {error ? <ListBanner tone="recover" text={error} /> : null}
             {trades.length === 0 && !q ? <Empty text={t.trades.empty} /> : null}
             {q && items.length === 0 ? <Empty text={t.list.noMatch} /> : null}
           </>

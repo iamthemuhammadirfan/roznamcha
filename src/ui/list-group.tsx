@@ -1,53 +1,26 @@
 // Full-width rows for the short owner-managed lists Settings opens (trades, expense
 // types): a name, how much it's used, and icon actions.
-// Built with Tamagui (Settings only).
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { styled, View } from '@tamagui/core';
-import { Input } from '@tamagui/input';
 import { type ComponentProps, type ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, TextInput, type TextInputProps, View } from 'react-native';
 import Animated, { type SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 
 import { isUrdu } from '@/i18n';
 
-import { XStack, YStack } from './tamagui.config';
-import { Digits, Text } from './tamagui-text';
-import { colors, TOUCH_MIN } from './theme';
-
-const Divider = styled(View, {
-  height: StyleSheet.hairlineWidth,
-  backgroundColor: 'border',
-  marginStart: 'lg',
-});
-
-const RowFrame = styled(XStack, {
-  minHeight: TOUCH_MIN,
-  alignItems: 'center',
-  gap: 'sm',
-  paddingStart: 'lg',
-  paddingEnd: 'sm',
-  paddingVertical: 'xs',
-});
+import { Num, T } from './text';
+import { colors, fonts, space, TOUCH_MIN } from './theme';
 
 /** A text box in the app's font: the rename box here, and the add bar's. */
-export const ListInput = styled(Input, {
-  flex: 1,
-  minHeight: 52,
-  borderWidth: 1,
-  borderColor: 'border',
-  backgroundColor: 'card',
-  paddingHorizontal: 'lg',
-  fontFamily: 'body',
-  fontSize: 18,
-  color: 'text',
-});
+export function ListInput({ style, ...rest }: TextInputProps) {
+  return <TextInput placeholderTextColor={colors.muted} {...rest} style={[styles.input, style]} />;
+}
 
 /** A small title above a run of rows, e.g. hidden types. */
 export function SectionTitle({ title }: { title: string }) {
   return (
-    <Text variant="small" paddingHorizontal="lg" paddingTop="lg">
+    <T variant="small" style={styles.sectionTitle}>
       {title}
-    </Text>
+    </T>
   );
 }
 
@@ -59,20 +32,8 @@ export function SectionTitle({ title }: { title: string }) {
 function Meter({ share, sweep }: { share: number; sweep: SharedValue<number> }) {
   const grow = useAnimatedStyle(() => ({ transform: [{ scaleX: sweep.get() }] }));
   return (
-    <View height={4} borderRadius="round" backgroundColor="brandSoft" overflow="hidden">
-      <Animated.View
-        style={[
-          {
-            height: '100%',
-            width: `${Math.round(share * 100)}%`,
-            borderRadius: 999,
-            backgroundColor: colors.brand,
-            // transformOrigin is physical, and forced RTL doesn't mirror it.
-            transformOrigin: isUrdu ? 'right' : 'left',
-          },
-          grow,
-        ]}
-      />
+    <View style={styles.meter}>
+      <Animated.View style={[styles.meterFill, { width: `${Math.round(share * 100)}%` }, grow]} />
     </View>
   );
 }
@@ -95,28 +56,28 @@ export function ListRow({
   children?: ReactNode;
 }) {
   return (
-    <YStack>
-      {divider ? <Divider /> : null}
-      <RowFrame>
-        <YStack flex={1} gap="xs" paddingVertical="xs">
-          <XStack alignItems="center" gap="sm">
-            <Text variant="bodyBold" flex={1} color={muted ? 'muted' : 'text'}>
+    <View>
+      {divider ? <View style={styles.divider} /> : null}
+      <View style={styles.row}>
+        <View style={styles.rowBody}>
+          <View style={styles.rowHead}>
+            <T variant="bodyBold" style={[styles.label, muted && { color: colors.muted }]}>
               {label}
-            </Text>
+            </T>
             {count && count.n > 0 ? (
-              <XStack alignItems="center" gap="xs">
-                <Digits bold color={muted ? 'muted' : 'brand'}>
+              <View style={styles.count}>
+                <Num bold style={{ color: muted ? colors.muted : colors.brand }}>
                   {count.n}
-                </Digits>
-                <Text variant="small">{count.unit}</Text>
-              </XStack>
+                </Num>
+                <T variant="small">{count.unit}</T>
+              </View>
             ) : null}
-          </XStack>
+          </View>
           {count ? <Meter share={count.max > 0 ? count.n / count.max : 0} sweep={count.sweep} /> : null}
-        </YStack>
+        </View>
         {children}
-      </RowFrame>
-    </YStack>
+      </View>
+    </View>
   );
 }
 
@@ -135,21 +96,19 @@ export function IconAction({
   disabled?: boolean;
 }) {
   return (
-    <View
-      role="button"
-      aria-label={label}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
       disabled={disabled}
       onPress={onPress}
       hitSlop={4}
-      width={44}
-      height={44}
-      borderRadius="round"
-      alignItems="center"
-      justifyContent="center"
-      opacity={disabled ? 0.35 : 1}
-      backgroundColor={{ default: 'transparent', press: 'brandSoft' }}>
+      style={({ pressed }) => [
+        styles.iconAction,
+        disabled && { opacity: 0.35 },
+        pressed && { backgroundColor: colors.brandSoft },
+      ]}>
       <MaterialCommunityIcons name={icon} size={22} color={tone === 'danger' ? colors.recover : colors.brand} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -172,21 +131,66 @@ export function EditRow({
   cancelLabel: string;
 }) {
   return (
-    <YStack>
-      {divider ? <Divider /> : null}
-    <RowFrame backgroundColor="brandSoft" paddingStart="md">
-      <ListInput
-        value={value}
-        onChangeText={onChangeText}
-        onSubmitEditing={onSave}
-        returnKeyType="done"
-        autoFocus
-        borderRadius="sm"
-        borderColor="brand"
-      />
-      <IconAction icon="check" label={saveLabel} onPress={onSave} disabled={!value.trim()} />
-      <IconAction icon="close" label={cancelLabel} onPress={onCancel} />
-    </RowFrame>
-    </YStack>
+    <View>
+      {divider ? <View style={styles.divider} /> : null}
+      <View style={[styles.row, styles.editRow]}>
+        <ListInput
+          value={value}
+          onChangeText={onChangeText}
+          onSubmitEditing={onSave}
+          returnKeyType="done"
+          autoFocus
+          style={styles.editInput}
+        />
+        <IconAction icon="check" label={saveLabel} onPress={onSave} disabled={!value.trim()} />
+        <IconAction icon="close" label={cancelLabel} onPress={onCancel} />
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  input: {
+    flex: 1,
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.lg,
+    fontFamily: isUrdu ? fonts.urdu : fonts.latin,
+    fontSize: 18,
+    color: colors.text,
+  },
+  sectionTitle: { paddingHorizontal: space.lg, paddingTop: space.lg },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border, marginStart: space.lg },
+  row: {
+    flexDirection: 'row',
+    minHeight: TOUCH_MIN,
+    alignItems: 'center',
+    gap: space.sm,
+    paddingStart: space.lg,
+    paddingEnd: space.sm,
+    paddingVertical: space.xs,
+  },
+  rowBody: { flex: 1, gap: space.xs, paddingVertical: space.xs },
+  rowHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  label: { flex: 1 },
+  count: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  meter: { height: 4, borderRadius: 999, backgroundColor: colors.brandSoft, overflow: 'hidden' },
+  meterFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: colors.brand,
+    // transformOrigin is physical, and forced RTL doesn't mirror it.
+    transformOrigin: isUrdu ? 'right' : 'left',
+  },
+  iconAction: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editRow: { backgroundColor: colors.brandSoft, paddingStart: space.md },
+  editInput: { borderRadius: 10, borderColor: colors.brand },
+});
