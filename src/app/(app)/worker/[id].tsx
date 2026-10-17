@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useState } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -19,11 +19,12 @@ import { formatDay } from '@/lib/dates';
 import { parseRupees } from '@/lib/money';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
-import { entryKindLabel, lang, t, tradeLabel } from '@/i18n';
+import { entryKindLabel, isUrdu, lang, t, tradeLabel } from '@/i18n';
 import { StatusCount } from '@/ui/attendance';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Banner, Button, Card, Empty, Field, Row, Screen } from '@/ui/controls';
 import { DateField } from '@/ui/date-field';
+import { HeaderTitle } from '@/ui/header';
 import { CodePlate, SiteBoard } from '@/ui/site-board';
 import { WorkerAvatar } from '@/ui/worker-avatar';
 import { Money, Num, T } from '@/ui/text';
@@ -266,7 +267,8 @@ function Tool({
 }
 
 export default function WorkerDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `projectId` when opened from inside a project: show only that project's ledger.
+  const { id, projectId } = useLocalSearchParams<{ id: string; projectId?: string }>();
   const worker = useWorker(id);
   const assignments = useWorkerAssignments(id);
   const entries = useWorkerEntries(id);
@@ -276,9 +278,18 @@ export default function WorkerDetail() {
   if (!worker) return <Empty text={t.worker.notFound} />;
 
   const grand = assignments.reduce((s, a) => s + (balances.get(a.id)?.balance ?? 0), 0);
+  // Scoped only while the worker is still on that project; otherwise the full ledger.
+  const scoped = Boolean(projectId) && assignments.some((a) => a.project_id === projectId);
+  const shown = scoped ? assignments.filter((a) => a.project_id === projectId) : assignments;
+  // Codes of the worker's other projects, once each (a rejoin is a second assignment).
+  const otherCodes = scoped
+    ? [...new Set(assignments.filter((a) => a.project_id !== projectId).map((a) => a.project_code))]
+    : [];
 
   return (
     <Screen>
+      {/* Inside a project the header carries its code, like every other project screen. */}
+      {scoped ? <Stack.Screen options={{ headerTitle: () => <HeaderTitle title={t.ledger.title} projectId={projectId} /> }} /> : null}
       <Card style={{ gap: space.md }}>
         <Row style={{ alignItems: 'flex-start' }}>
           <WorkerAvatar name={worker.name_ur} size={64} />
@@ -323,7 +334,7 @@ export default function WorkerDetail() {
 
       {assignments.length === 0 ? <Empty text={t.worker.noProjects} /> : null}
       {/* Each project is its own ledger. Money on 489 never nets against wages on 544. */}
-      {assignments.map((a) => (
+      {shown.map((a) => (
         <ProjectBlock
           key={a.id}
           a={a}
@@ -334,7 +345,27 @@ export default function WorkerDetail() {
         />
       ))}
 
-      {assignments.length > 1 ? (
+      {otherCodes.length > 0 ? (
+        // The rest of the worker's ledger, one tap away but out of this project's way.
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: '/worker/[id]', params: { id } })}
+          style={({ pressed }) => [styles.others, pressed && { backgroundColor: colors.brandSoft }]}>
+          <MaterialCommunityIcons name="briefcase-outline" size={22} color={colors.brand} />
+          <T variant="bodyBold" style={{ flex: 1, color: colors.brand }}>
+            {t.ledger.otherProjects}
+          </T>
+          {otherCodes.map((code) => (
+            <Num key={code} bold style={styles.otherCode}>
+              {code}
+            </Num>
+          ))}
+          {/* Forced RTL mirrors the layout but not the glyph, so pick the one that points inward. */}
+          <MaterialCommunityIcons name={isUrdu ? 'chevron-left' : 'chevron-right'} size={24} color={colors.brand} />
+        </Pressable>
+      ) : null}
+
+      {!scoped && assignments.length > 1 ? (
         <Card style={{ backgroundColor: colors.brandSoft }}>
           <T variant="h2">{t.ledger.grandTotal}</T>
           <BalanceChip paisa={grand} size={22} />
@@ -391,6 +422,24 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1.5,
     paddingHorizontal: space.md,
+  },
+  others: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.md,
+  },
+  otherCode: {
+    color: colors.siteInk,
+    backgroundColor: colors.site,
+    borderRadius: 6,
+    paddingHorizontal: space.sm,
+    overflow: 'hidden',
   },
   call: {
     minHeight: 56,
