@@ -13,13 +13,40 @@ export type TeamError =
   | 'not_munshi'
   | 'invalid_email'
   | 'weak_password'
+  | 'invalid_name'
+  | 'invalid_phone'
   | 'exists'
   | 'failed';
 
 /** Supabase's default minimum; the function enforces the same. */
 export const MIN_PASSWORD = 6;
 
-const KNOWN: TeamError[] = ['unauthorized', 'not_owner', 'not_munshi', 'invalid_email', 'weak_password', 'exists'];
+const KNOWN: TeamError[] = [
+  'unauthorized',
+  'not_owner',
+  'not_munshi',
+  'invalid_email',
+  'weak_password',
+  'invalid_name',
+  'invalid_phone',
+  'exists',
+];
+
+/** A member's name: trimmed, 1–80 characters (membership's check constraint), or null. */
+export function cleanName(name: string) {
+  const n = name.trim();
+  return n.length >= 1 && n.length <= 80 ? n : null;
+}
+
+/**
+ * A member's phone: digits and "+" only, 7–20 long (the check constraint). Empty is
+ * fine (null); anything else invalid is `false`.
+ */
+export function cleanPhone(phone: string): string | null | false {
+  const p = phone.replace(/[^\d+]/g, '');
+  if (!p) return null;
+  return p.length >= 7 && p.length <= 20 ? p : false;
+}
 
 async function call(body: Record<string, string>): Promise<{ error: TeamError | null; restored?: boolean }> {
   if (!supabase) return { error: 'offline' };
@@ -41,8 +68,8 @@ async function toTeamError(error: unknown): Promise<TeamError> {
 }
 
 /** `restored` when the email was a removed munshi, now back with this password. */
-export function createMunshi(businessId: string, email: string, password: string) {
-  return call({ action: 'create', businessId, email: email.trim(), password });
+export function createMunshi(businessId: string, name: string, phone: string, email: string, password: string) {
+  return call({ action: 'create', businessId, name: name.trim(), phone, email: email.trim(), password });
 }
 
 export async function resetMunshiPassword(businessId: string, userId: string, password: string) {

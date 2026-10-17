@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { useMembers } from '@/db/hooks';
 import { lang, t } from '@/i18n';
@@ -71,8 +71,12 @@ export default function TeamScreen() {
           <MunshiCard
             m={m}
             busy={working === m.user_id}
+            onEdit={() => router.push({ pathname: '/member-details', params: { id: m.id } })}
             onReset={() =>
-              router.push({ pathname: '/team-member', params: { userId: m.user_id, email: m.email ?? '' } })
+              router.push({
+                pathname: '/team-member',
+                params: { userId: m.user_id, email: m.email ?? '', name: m.name ?? '' },
+              })
             }
             onRevoke={() => setRemoving(m)}
           />
@@ -83,7 +87,7 @@ export default function TeamScreen() {
         open={removing !== null}
         onClose={() => setRemoving(null)}
         title={t.team.revoke}
-        description={removing ? `${removing.email ?? ''}\n${t.team.revokeConfirm}` : undefined}
+        description={removing ? `${removing.name ?? removing.email ?? ''}\n${t.team.revokeConfirm}` : undefined}
         actions={[{ label: t.team.revoke, tone: 'danger', onPress: () => removing && revoke(removing) }]}
         cancelLabel={t.action.cancel}
       />
@@ -94,11 +98,13 @@ export default function TeamScreen() {
 function MunshiCard({
   m,
   busy,
+  onEdit,
   onReset,
   onRevoke,
 }: {
   m: Member;
   busy: boolean;
+  onEdit: () => void;
   onReset: () => void;
   onRevoke: () => void;
 }) {
@@ -106,12 +112,27 @@ function MunshiCard({
   const since = m.created_at ? formatDay(m.created_at.slice(0, 10), lang) : null;
   return (
     <Card style={{ gap: space.md }}>
-      <Row style={{ alignItems: 'center' }}>
+      {/* Tapping the person edits their name and number. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t.team.details}
+        onPress={onEdit}
+        style={({ pressed }) => [styles.head, pressed && { backgroundColor: colors.brandSoft }]}>
         <View style={styles.avatar}>
           <MaterialCommunityIcons name="account-hard-hat" size={28} color={colors.brand} />
         </View>
         <View style={{ flex: 1 }}>
-          <Num bold numberOfLines={1} style={styles.email}>
+          {m.name ? (
+            <T variant="h2" numberOfLines={1}>
+              {m.name}
+            </T>
+          ) : (
+            <T variant="bodyBold" style={{ color: colors.pending }}>
+              {t.team.noName}
+            </T>
+          )}
+          {m.phone ? <Num style={styles.phone}>{m.phone}</Num> : null}
+          <Num numberOfLines={1} style={styles.email}>
             {m.email ?? '—'}
           </Num>
           <Row style={{ gap: space.xs }}>
@@ -123,8 +144,12 @@ function MunshiCard({
             ) : null}
           </Row>
         </View>
-        {busy ? <ActivityIndicator color={colors.brand} /> : null}
-      </Row>
+        {busy ? (
+          <ActivityIndicator color={colors.brand} />
+        ) : (
+          <MaterialCommunityIcons name="pencil-outline" size={22} color={colors.brand} />
+        )}
+      </Pressable>
       <Row>
         <Tool icon="lock-reset" label={t.team.resetTitle} onPress={onReset} disabled={busy} />
         <Tool icon="account-cancel-outline" label={t.team.revoke} danger onPress={onRevoke} disabled={busy} />
@@ -143,5 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  email: { fontSize: 17, lineHeight: 26 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, borderRadius: 10 },
+  phone: { fontSize: 16, lineHeight: 26 },
+  email: { fontSize: 14, lineHeight: 22, color: colors.muted },
 });

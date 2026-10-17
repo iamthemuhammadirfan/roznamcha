@@ -124,12 +124,15 @@ function Level({ state }: { state: SyncState }) {
 
 export function SiteStatus({
   business,
+  name,
   role,
   email,
   sync,
   readouts,
 }: {
   business: string;
+  /** The signed-in member's own name, when they have one. */
+  name?: string | null;
   role: string;
   email?: string | null;
   /** Absent in local mode: nothing syncs, so there is no beam. */
@@ -145,6 +148,11 @@ export function SiteStatus({
           {business}
         </T>
         <View style={styles.identity}>
+          {name ? (
+            <T variant="bodyBold" style={{ color: colors.white }}>
+              {name}
+            </T>
+          ) : null}
           <T variant="small" style={styles.onBrand}>
             {role}
           </T>

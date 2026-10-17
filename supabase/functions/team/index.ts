@@ -19,7 +19,7 @@ const MIN_PASSWORD = 6;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Body =
-  | { action: 'create'; businessId: string; email: string; password: string }
+  | { action: 'create'; businessId: string; email: string; password: string; name: string; phone?: string }
   | { action: 'reset'; businessId: string; userId: string; password: string }
   | { action: 'revoke'; businessId: string; userId: string };
 
@@ -27,7 +27,28 @@ type Body =
 const BANNED = '876000h';
 
 /** Error codes the app turns into Urdu/English messages (src/lib/team.ts). */
-type Code = 'unauthorized' | 'not_owner' | 'not_munshi' | 'invalid_email' | 'weak_password' | 'exists' | 'bad_request' | 'failed';
+type Code =
+  | 'unauthorized'
+  | 'not_owner'
+  | 'not_munshi'
+  | 'invalid_email'
+  | 'weak_password'
+  | 'invalid_name'
+  | 'invalid_phone'
+  | 'exists'
+  | 'bad_request'
+  | 'failed';
+
+/** Same limits as membership's check constraints. */
+function cleanName(name: unknown) {
+  const n = String(name ?? '').trim();
+  return n.length >= 1 && n.length <= 80 ? n : null;
+}
+function cleanPhone(phone: unknown): string | null | false {
+  const p = String(phone ?? '').replace(/[^\d+]/g, '');
+  if (!p) return null;
+  return p.length >= 7 && p.length <= 20 ? p : false;
+}
 
 function reply(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -66,9 +87,14 @@ Deno.serve(async (req) => {
   if (body.action === 'create') {
     const email = String(body.email ?? '').trim().toLowerCase();
     if (!EMAIL.test(email)) return fail(400, 'invalid_email');
+    const name = cleanName(body.name);
+    if (!name) return fail(400, 'invalid_name');
+    const phone = cleanPhone(body.phone);
+    if (phone === false) return fail(400, 'invalid_phone');
+    const details = { name, phone };
 
     const { data, error } = await admin.auth.admin.createUser({ email, password: body.password, email_confirm: true });
-    if (error?.code === 'email_exists') return restore(email, body.businessId, body.password);
+    if (error?.code === 'email_exists') return restore(email, body.businessId, body.password, details);
     if (error || !data.user) {
       if (error?.code === 'email_address_invalid') return fail(400, 'invalid_email');
       if (error?.code === 'weak_password') return fail(400, 'weak_password');
@@ -79,7 +105,7 @@ Deno.serve(async (req) => {
     // membership.email is filled in by its insert trigger.
     const { error: joinError } = await admin
       .from('membership')
-      .insert({ business_id: body.businessId, user_id: data.user.id, role: 'munshi' });
+      .insert({ business_id: body.businessId, user_id: data.user.id, role: 'munshi', ...details });
     if (joinError) {
       // Don't leave an account that belongs to no business.
       await admin.auth.admin.deleteUser(data.user.id);
@@ -149,7 +175,12 @@ Deno.serve(async (req) => {
    * The email already has an account. If it belongs to no business — a munshi whose
    * access was removed — bring it back here with the new password; otherwise refuse.
    */
-  async function restore(email: string, businessId: string, password: string) {
+  async function restore(
+    email: string,
+    businessId: string,
+    password: string,
+    details: { name: string; phone: string | null },
+  ) {
     // No lookup-by-email in the admin API; a business has a handful of accounts.
     const { data: list, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     const found = list?.users.find((u) => u.email?.toLowerCase() === email);
@@ -168,7 +199,7 @@ Deno.serve(async (req) => {
     }
     const { error: joinError } = await admin
       .from('membership')
-      .insert({ business_id: businessId, user_id: found.id, role: 'munshi' });
+      .insert({ business_id: businessId, user_id: found.id, role: 'munshi', ...details });
     if (joinError) {
       console.error('restore membership', joinError);
       return fail(500, 'failed');

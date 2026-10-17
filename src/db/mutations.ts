@@ -14,6 +14,7 @@ import {
   attendance,
   expenseCategory,
   ledgerEntry,
+  membership,
   project,
   projectExpense,
   rejectedWrite,
@@ -101,6 +102,17 @@ export async function createWorker(ctx: WriteContext, input: WorkerInput) {
 
 export async function updateWorker(id: string, input: WorkerInput) {
   await db.update(worker).set({ ...clean(input), ...touched() }).where(eq(worker.id, id));
+}
+
+// ─── Members ─────────────────────────────────────────────────────────────────
+
+/**
+ * A member's name and phone. RLS allows it for the owner on their munshis and for anyone
+ * on their own row; only these two columns are writable. Call with values already
+ * passed through cleanName / cleanPhone (lib/team.ts), so the upload can't be refused.
+ */
+export async function updateMemberDetails(id: string, name: string, phone: string | null) {
+  await db.update(membership).set({ name, phone }).where(eq(membership.id, id));
 }
 
 // ─── Trades ──────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { usePendingUploadCount } from '@/db/hooks';
+import { useMembers, usePendingUploadCount } from '@/db/hooks';
 import { formatDay, toDay } from '@/lib/dates';
 import { RELEASE } from '@/release';
 import { useMember, useSession } from '@/state/session';
@@ -31,6 +31,7 @@ export default function Settings() {
   const status = useStatus();
   const pending = usePendingUploadCount();
   const isOwner = member.role === 'owner';
+  const myName = useMembers().find((m) => m.user_id === member.userId && m.business_id === member.businessId)?.name;
 
   const [dialog, setDialog] = useState<'language' | 'signOut' | null>(null);
 
@@ -67,6 +68,7 @@ export default function Settings() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <SiteStatus
           business={member.businessName}
+          name={myName}
           role={t.role[member.role]}
           email={member.email}
           sync={localMode ? undefined : { state: syncState, headline }}
