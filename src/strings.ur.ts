@@ -284,7 +284,6 @@ export const ur = {
     owedToWorker: 'ہمارے ذمے',
     owedByWorker: 'وصول طلب',
     settled: 'حساب برابر',
-    total: 'کل بقایا',
     newBalance: 'نیا بقایا',
   },
   receipt: {

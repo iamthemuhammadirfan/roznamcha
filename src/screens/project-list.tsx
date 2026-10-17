@@ -14,12 +14,13 @@ import {
 } from '@/db/hooks';
 import type { Project } from '@/db/schema';
 import { activeOn, coverage } from '@/lib/attendance';
+import { splitBalances } from '@/lib/balance';
 import { formatDay, presetRange, today, weekday } from '@/lib/dates';
 import { projectSpend } from '@/lib/expenses';
 import { useActiveProject } from '@/state/active-project';
 import { useSession } from '@/state/session';
 import { lang, t } from '@/i18n';
-import { BalanceChip } from '@/ui/balance-chip';
+import { BalanceSplit } from '@/ui/balance-chip';
 import { Chip } from '@/ui/chip';
 import { Banner, Empty, Row } from '@/ui/controls';
 import { Fab } from '@/ui/fab';
@@ -31,7 +32,9 @@ import { colors, space } from '@/ui/theme';
 
 interface SiteSummary {
   workers: number;
-  outstanding: number;
+  /** Owed to workers, and recoverable from them: kept apart, never netted. */
+  owed: number;
+  recoverable: number;
   expected: number;
   marked: number;
   spentThisMonth: number;
@@ -68,7 +71,7 @@ export function ProjectList() {
     const expected = mine.filter((a) => activeOn(a, day));
     return {
       workers: mine.filter((a) => a.is_active).length,
-      outstanding: mine.reduce((sum, a) => sum + (balances.get(a.id)?.balance ?? 0), 0),
+      ...splitBalances(mine.map((a) => balances.get(a.id)?.balance ?? 0)),
       expected: expected.length,
       marked: expected.filter((a) => markedToday.has(a.id)).length,
       // Cash to workers + site expenses this month, same as the project's expenses screen.
@@ -244,7 +247,7 @@ function ProjectBoard({
         ) : null}
       </View>
 
-      <BalanceChip paisa={s.outstanding} />
+      <BalanceSplit owed={s.owed} recoverable={s.recoverable} />
     </SiteBoard>
   );
 }

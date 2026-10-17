@@ -25,7 +25,35 @@ export function BalanceChip({ paisa, size = 16 }: { paisa: number; size?: number
   );
 }
 
+/**
+ * A project's two totals side by side — owed to workers, recoverable from workers — each
+ * in its own colour, instead of one netted figure.
+ */
+export function BalanceSplit({ owed, recoverable, size = 16 }: { owed: number; recoverable: number; size?: number }) {
+  return (
+    <View style={styles.split}>
+      <SplitSide label={t.balance.owedToWorker} paisa={owed} fg={colors.owed} bg={colors.owedSoft} size={size} />
+      <SplitSide label={t.balance.owedByWorker} paisa={recoverable} fg={colors.recover} bg={colors.recoverSoft} size={size} />
+    </View>
+  );
+}
+
+function SplitSide({ label, paisa, fg, bg, size }: { label: string; paisa: number; fg: string; bg: string; size: number }) {
+  // Nothing on this side: a quiet zero, so the other side stands out.
+  const color = paisa > 0 ? fg : colors.muted;
+  return (
+    <View style={[styles.side, { backgroundColor: paisa > 0 ? bg : colors.bg }]}>
+      <T variant="small" style={{ color, alignSelf: 'stretch' }}>
+        {label}
+      </T>
+      <Money paisa={paisa} size={size} color={color} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  split: { flexDirection: 'row', gap: space.sm, alignSelf: 'stretch' },
+  side: { flex: 1, borderRadius: 12, paddingHorizontal: space.md, paddingVertical: space.xs },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
