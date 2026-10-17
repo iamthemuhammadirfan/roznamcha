@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { activeOn, coverage, monthWeeks, nextStatus, summarize } from './attendance';
-import { attendanceEarning, computeBalance, reversedIds } from './balance';
+import { attendanceEarning, computeBalance, reversedIds, splitBalances } from './balance';
 import { projectSpend, summarizeExpenses, summarizeRange } from './expenses';
 import { addDays, daysBetween, presetRange, formatDay, formatDayUr, weekday } from './dates';
 import { formatRupees, parseRupees, toWhatsAppNumber } from './money';
@@ -80,6 +80,11 @@ describe('balance', () => {
     ];
     expect(computeBalance([], entries).balance).toBe(0);
     expect(reversedIds(entries).has('a')).toBe(true);
+  });
+
+  test('a project total keeps what we owe and what we are owed apart', () => {
+    expect(splitBalances([500000, -200000, 0, 100000, -50000])).toEqual({ owed: 600000, recoverable: 250000 });
+    expect(splitBalances([])).toEqual({ owed: 0, recoverable: 0 });
   });
 });
 

@@ -287,7 +287,6 @@ export const en: Strings = {
     owedToWorker: 'We owe',
     owedByWorker: 'Recoverable',
     settled: 'Settled',
-    total: 'Total outstanding',
     newBalance: 'New balance',
   },
   receipt: {

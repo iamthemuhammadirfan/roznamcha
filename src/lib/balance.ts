@@ -75,6 +75,21 @@ export function computeBalance(attendance: AttendanceLike[], entries: EntryLike[
   return { earned, ledger, balance: earned + ledger };
 }
 
+/**
+ * A project's balances split by direction instead of netted: what we owe the workers we
+ * owe, and what we're due from those who took more than they earned. Netting the two
+ * would hide one worker's advance inside another's unpaid wages.
+ */
+export function splitBalances(balances: number[]): { owed: number; recoverable: number } {
+  let owed = 0;
+  let recoverable = 0;
+  for (const b of balances) {
+    if (b > 0) owed += b;
+    else recoverable -= b;
+  }
+  return { owed, recoverable };
+}
+
 /** Ids of entries that have already been reversed, so the UI can mark them and block a second reversal. */
 export function reversedIds(entries: EntryLike[]): Set<string> {
   return new Set(entries.filter((e) => e.reverses_id).map((e) => e.reverses_id as string));

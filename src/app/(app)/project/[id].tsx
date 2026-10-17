@@ -12,11 +12,12 @@ import {
   useProjectExpenses,
 } from '@/db/hooks';
 import { activeOn, coverage } from '@/lib/attendance';
+import { splitBalances } from '@/lib/balance';
 import { presetRange, today } from '@/lib/dates';
 import { projectSpend } from '@/lib/expenses';
 import { useSession } from '@/state/session';
 import { isUrdu, t } from '@/i18n';
-import { BalanceChip } from '@/ui/balance-chip';
+import { BalanceSplit } from '@/ui/balance-chip';
 import { Banner, Card, Empty, Row, Screen } from '@/ui/controls';
 import { CodePlate, SiteBoard } from '@/ui/site-board';
 import { Money, Num, T } from '@/ui/text';
@@ -44,7 +45,7 @@ export default function ProjectDashboard() {
 
   if (!project) return <Empty text={t.project.empty} />;
 
-  const outstanding = assignments.reduce((s, a) => s + (balances.get(a.id)?.balance ?? 0), 0);
+  const totals = splitBalances(assignments.map((a) => balances.get(a.id)?.balance ?? 0));
   const active = assignments.filter((a) => a.is_active).length;
 
   const day = today();
@@ -65,8 +66,7 @@ export default function ProjectDashboard() {
             {project.address ? <T variant="small">{project.address}</T> : null}
           </View>
         </Row>
-        <T variant="small">{t.balance.total}</T>
-        <BalanceChip paisa={outstanding} size={22} />
+        <BalanceSplit owed={totals.owed} recoverable={totals.recoverable} size={22} />
       </SiteBoard>
 
       <View style={styles.actions}>
