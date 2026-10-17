@@ -166,6 +166,8 @@ export default function TeamMember() {
         autoComplete="off"
         autoFocus={resetting}
         onSubmitEditing={submit}
+        // Android: a plain Latin keyboard with no suggestions, whatever the phone's language.
+        keyboardType="visible-password"
         testID="team-password"
         style={styles.latin}
       />

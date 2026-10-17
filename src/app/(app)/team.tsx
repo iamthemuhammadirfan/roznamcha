@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 
 
 import { useMembers } from '@/db/hooks';
 import { lang, t } from '@/i18n';
-import { formatDay } from '@/lib/dates';
+import { formatDay, toDay } from '@/lib/dates';
 import { revokeMunshi } from '@/lib/team';
 import { useMember, useSession } from '@/state/session';
 import { ChoiceDialog } from '@/ui/choice-dialog';
@@ -108,8 +108,7 @@ function MunshiCard({
   onReset: () => void;
   onRevoke: () => void;
 }) {
-  // created_at is a server timestamp; its first ten characters are the day.
-  const since = m.created_at ? formatDay(m.created_at.slice(0, 10), lang) : null;
+  const since = m.created_at ? formatDay(localDay(m.created_at), lang) : null;
   return (
     <Card style={{ gap: space.md }}>
       {/* Tapping the person edits their name and number. */}
@@ -156,6 +155,15 @@ function MunshiCard({
       </Row>
     </Card>
   );
+}
+
+/**
+ * The phone's calendar day of a server timestamp ("2026-10-17 19:07:00+00" is the 18th
+ * in Pakistan). Falls back to its UTC day if the format isn't one Date can read.
+ */
+function localDay(timestamp: string) {
+  const d = new Date(timestamp.replace(' ', 'T').replace(/([+-]\d{2})$/, '$1:00'));
+  return Number.isNaN(d.getTime()) ? timestamp.slice(0, 10) : toDay(d);
 }
 
 const styles = StyleSheet.create({
