@@ -41,12 +41,15 @@ function Meter({ share, sweep }: { share: number; sweep: SharedValue<number> }) 
 /** A name, its count and share meter, then icon actions. */
 export function ListRow({
   label,
+  detail,
   count,
   muted,
   divider,
   children,
 }: {
   label: string;
+  /** A second line under the label, e.g. a member's email. */
+  detail?: ReactNode;
   /** How many use this, of how many in all, and what they are ("workers"). */
   count?: { n: number; max: number; unit: string; sweep: SharedValue<number> };
   muted?: boolean;
@@ -73,6 +76,7 @@ export function ListRow({
               </View>
             ) : null}
           </View>
+          {detail}
           {count ? <Meter share={count.max > 0 ? count.n / count.max : 0} sweep={count.sweep} /> : null}
         </View>
         {children}
