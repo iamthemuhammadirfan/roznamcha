@@ -174,7 +174,7 @@ export const ur = {
     categoryRequired: 'خرچے کی قسم چنیں',
     today: 'آج',
     month: 'اس مہینے',
-    total: 'کل خرچہ',
+    sinceStart: 'شروع سے اب تک',
     empty: 'ابھی کوئی خرچہ درج نہیں',
     byCategory: 'قسم کے حساب سے',
     cancel: 'خرچہ منسوخ کریں',
