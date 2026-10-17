@@ -318,6 +318,8 @@ export const ur = {
     restart: 'ری اسٹارٹ کریں',
     language: 'زبان',
     languageHelp: 'زبان بدلنے پر ایپ دوبارہ کھلے گی۔ مزدور کو پرچی ہمیشہ اردو میں جائے گی۔',
+    team: 'ٹیم',
+    you: 'آپ',
   },
   update: {
     checkError: 'چیک نہیں ہو سکا',

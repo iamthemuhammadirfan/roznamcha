@@ -322,6 +322,8 @@ export const en: Strings = {
     restart: 'Restart',
     language: 'Language',
     languageHelp: 'The app restarts when you change language. Workers always get the receipt in Urdu.',
+    team: 'Team',
+    you: 'You',
   },
   update: {
     checkError: 'Couldn’t check',

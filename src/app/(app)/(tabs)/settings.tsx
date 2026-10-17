@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { usePendingUploadCount } from '@/db/hooks';
+import { useMembers, usePendingUploadCount } from '@/db/hooks';
 import { formatDay, toDay } from '@/lib/dates';
 import { RELEASE } from '@/release';
 import { useMember, useSession } from '@/state/session';
@@ -91,6 +91,8 @@ export default function Settings() {
             </SettingsSection>
           ) : null}
 
+          {isOwner && !localMode ? <TeamSection /> : null}
+
           <SettingsSection title={t.settings.app}>
             <SettingsRow
               icon="translate"
@@ -139,6 +141,32 @@ export default function Settings() {
         cancelLabel={t.action.cancel}
       />
     </SafeAreaView>
+  );
+}
+
+/**
+ * Who can sign in to this business and as what. Accounts are made in the Supabase
+ * dashboard, so this only lists them; emails come from membership.email, which the
+ * server fills in.
+ */
+function TeamSection() {
+  const members = useMembers();
+  const { userId } = useMember();
+  return (
+    <SettingsSection title={t.settings.team}>
+      {members.map((m) => {
+        const role = m.role === 'owner' ? 'owner' : 'munshi';
+        return (
+          <SettingsRow
+            key={m.id}
+            icon={role === 'owner' ? 'account-tie' : 'account-hard-hat'}
+            label={t.role[role]}
+            detail={m.email ? <Num style={styles.small}>{m.email}</Num> : undefined}
+            value={m.user_id === userId ? t.settings.you : undefined}
+          />
+        );
+      })}
+    </SettingsSection>
   );
 }
 
