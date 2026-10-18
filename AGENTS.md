@@ -50,6 +50,16 @@ Docs: https://docs.expo.dev/eas/index.md
 - PowerSync does not enforce unique indexes locally — enforce them in `src/db/mutations.ts`. Server rules live in `supabase/migrations/`; add a new migration rather than editing an applied one.
 - Run `bun run test`, `bun run typecheck`, `bun run lint` before calling a change done.
 
+## Local database (playground)
+
+There is one live Supabase project and one PowerSync instance; the client (beconHQ) works on them. Try anything server-side locally first.
+
+- `./scripts/local-db.sh up` starts a local Supabase (`supabase/config.toml`, ports 553xx, so it runs beside other local stacks) and a self-hosted PowerSync (`powersync/local/config.yaml`, port 55380, same `powersync/sync-config.yaml` as production). Then it points the dev app at them. It's built from `supabase/migrations` plus `supabase/seed.sql` (a copy of the live "Roznamcha Test"). Logins: `admin@yopmail.com` / `munshi@yopmail.com`, password `roznamcha-local`.
+- `live` / `local` switch the dev app; `reset` rebuilds the database from migrations + seed; `seed` refreshes the seed from live "Roznamcha Test" (never a customer's business); `down` stops everything.
+- Switching writes or removes only `.env.development.local`. Expo never reads it in a production export, so `eas update` always uses `.env.local` / the EAS production env (live). Dev builds clear their synced copy when the backend changes, so let sync go green first.
+- Dev builds show a ribbon: green "local database" on the laptop, red "LIVE DATA" when signed in to a live business other than Roznamcha Test (don't save anything there). Release builds never show it.
+- Order for server changes: migration or Edge Function → `local-db.sh reset` and test on the emulator → back up the live data and snapshot row counts → apply live → compare counts.
+
 ## Device testing (Android emulator + Maestro)
 
 - These helpers live in `scripts/`, not `package.json` "scripts", and Maestro's ignore rule lives in `.maestro/.gitignore`, not the root `.gitignore`: both root files are part of the runtime fingerprint, and changing them stops OTA updates reaching installed APKs. Before an `eas update`, check `bunx eas-cli fingerprint:compare <production runtime>` matches.

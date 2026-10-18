@@ -2,6 +2,11 @@
 // ship — wage vocabulary is regional.
 
 export const ur = {
+  // Dev builds only (src/ui/dev-ribbon.tsx); never shown in the APK or OTA updates.
+  dev: {
+    live: 'لائیو ڈیٹا — کچھ محفوظ نہ کریں',
+    local: 'لوکل ڈیٹا بیس (لیپ ٹاپ)',
+  },
   app: {
     name: 'روزنامچہ',
     tagline: 'حاضری اور حساب',
