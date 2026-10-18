@@ -7,11 +7,19 @@
     "maestro": {
       "type": "stdio",
       "command": "maestro",
-      "args": ["mcp", "--no-viewer", "--working-dir=."],
+      "args": [
+        "mcp",
+        "--no-viewer",
+        "--working-dir=."
+      ],
       "env": {
         "MAESTRO_CLI_NO_ANALYTICS": "1",
         "MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED": "true"
       }
+    },
+    "supabase-local": {
+      "type": "http",
+      "url": "http://127.0.0.1:55321/mcp?features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
     }
   }
 }

@@ -8,6 +8,7 @@ import { useProject } from '@/db/hooks';
 import { useActiveProject } from '@/state/active-project';
 import { isUrdu, t } from '@/i18n';
 
+import { DevRibbon } from './dev-ribbon';
 import { SyncBadge } from './sync-badge';
 import { UpdateStrip } from './update-strip';
 import { Num, T } from './text';
@@ -99,6 +100,7 @@ export function AppHeader({ navigation, options, back }: HeaderProps) {
         {showSync ? <SyncBadge /> : null}
       </View>
       <UpdateStrip />
+      <DevRibbon />
     </View>
   );
 }

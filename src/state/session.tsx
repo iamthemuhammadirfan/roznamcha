@@ -46,6 +46,24 @@ const LOCAL_MEMBER: Member = {
 
 const memberKey = (userId: string) => `member:${userId}`;
 
+/**
+ * Dev builds switch between the live and the laptop's backend (scripts/local-db.sh).
+ * Supabase keeps a session per backend already, but the synced copy on the phone belongs
+ * to one of them, so start from an empty copy whenever the backend changes. Release builds
+ * never get here: their backend is fixed.
+ */
+async function forgetOtherBackend() {
+  const backend = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+  // Unknown counts as different: the copy may be from before this check existed.
+  const last = await AsyncStorage.getItem('devBackend');
+  if (last !== backend) {
+    console.warn(`[dev] backend changed (${last ?? 'unknown'} → ${backend}); clearing the local copy`);
+    await powersync.disconnectAndClear();
+    await AsyncStorage.removeItem('activeProjectId');
+  }
+  await AsyncStorage.setItem('devBackend', backend);
+}
+
 async function loadMember(session: AuthSession): Promise<Member | null> {
   const cached = await AsyncStorage.getItem(memberKey(session.user.id));
   if (cached) return JSON.parse(cached) as Member;
@@ -102,7 +120,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    supabase.auth.getSession().then(({ data }) => apply(data.session));
+    (__DEV__ ? forgetOtherBackend() : Promise.resolve())
+      .then(() => supabase!.auth.getSession())
+      .then(({ data }) => apply(data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       // Supabase holds its auth lock while this callback runs; calling other Supabase
       // methods from inside it (loadMember, PowerSync's fetchCredentials) can deadlock.

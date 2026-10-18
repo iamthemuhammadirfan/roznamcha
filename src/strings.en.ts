@@ -6,6 +6,10 @@ type Widen<T> = { [K in keyof T]: T[K] extends string ? string : Widen<T[K]> };
 export type Strings = Widen<typeof ur>;
 
 export const en: Strings = {
+  dev: {
+    live: 'LIVE DATA — don’t save anything',
+    local: 'Local database (laptop)',
+  },
   app: {
     name: 'Roznamcha',
     tagline: 'Attendance and accounts',
