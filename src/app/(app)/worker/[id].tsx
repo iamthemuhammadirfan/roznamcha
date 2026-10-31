@@ -21,6 +21,7 @@ import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
 import { entryKindLabel, isUrdu, lang, t, tradeLabel } from '@/i18n';
 import { StatusCount } from '@/ui/attendance';
+import { Attribution, type AttributionInfo, useAttribution } from '@/ui/attribution';
 import { BalanceChip } from '@/ui/balance-chip';
 import { Banner, Button, Card, Empty, Field, Row, Screen, Tool } from '@/ui/controls';
 import { DateField } from '@/ui/date-field';
@@ -35,12 +36,14 @@ function EntryRow({
   effect,
   reversed,
   canReverse,
+  who,
   onReverse,
 }: {
   entry: LedgerEntry;
   effect: number;
   reversed: boolean;
   canReverse: boolean;
+  who?: AttributionInfo;
   onReverse: () => void;
 }) {
   const isCorrection = entry.kind === 'correction';
@@ -48,29 +51,32 @@ function EntryRow({
     <Pressable
       onPress={() => router.push({ pathname: '/receipt/[id]', params: { id: entry.id } })}
       onLongPress={canReverse && !reversed && !isCorrection ? onReverse : undefined}
-      style={({ pressed }) => [styles.entry, pressed && { backgroundColor: colors.brandSoft }]}>
-      <View style={{ flexShrink: 1 }}>
-        <Row>
-          <T variant="bodyBold" style={[reversed && styles.struck, isCorrection && { color: colors.pending }]}>
-            {entryKindLabel(entry.kind)}
-          </T>
-          <T variant="small">{formatDay(entry.date, lang)}</T>
-        </Row>
-        <Row>
-          <Num style={{ fontSize: 13, color: colors.muted }}>{entry.ref_code}</Num>
-          {isCorrection && entry.note_ur ? (
-            <T variant="small">
-              {t.entry.reverses} <Num style={{ fontSize: 13 }}>{entry.note_ur}</Num>
+      style={({ pressed }) => [styles.entryItem, pressed && { backgroundColor: colors.brandSoft }]}>
+      <View style={styles.entry}>
+        <View style={{ flexShrink: 1 }}>
+          <Row>
+            <T variant="bodyBold" style={[reversed && styles.struck, isCorrection && { color: colors.pending }]}>
+              {entryKindLabel(entry.kind)}
             </T>
-          ) : entry.note_ur ? (
-            <T variant="small">{entry.note_ur}</T>
-          ) : null}
-        </Row>
-        <T variant="small" style={{ color: entry.receipt_sent_at ? colors.owed : colors.pending }}>
-          {reversed ? t.entry.reversed : entry.receipt_sent_at ? t.entry.receiptSent : t.entry.receiptPending}
-        </T>
+            <T variant="small">{formatDay(entry.date, lang)}</T>
+          </Row>
+          <Row>
+            <Num style={{ fontSize: 13, color: colors.muted }}>{entry.ref_code}</Num>
+            {isCorrection && entry.note_ur ? (
+              <T variant="small">
+                {t.entry.reverses} <Num style={{ fontSize: 13 }}>{entry.note_ur}</Num>
+              </T>
+            ) : entry.note_ur ? (
+              <T variant="small">{entry.note_ur}</T>
+            ) : null}
+          </Row>
+          <T variant="small" style={{ color: entry.receipt_sent_at ? colors.owed : colors.pending }}>
+            {reversed ? t.entry.reversed : entry.receipt_sent_at ? t.entry.receiptSent : t.entry.receiptPending}
+          </T>
+        </View>
+        <Money paisa={entry.amount_paisa} color={effect >= 0 ? colors.owed : colors.recover} />
       </View>
-      <Money paisa={entry.amount_paisa} color={effect >= 0 ? colors.owed : colors.recover} />
+      <Attribution info={who} />
     </Pressable>
   );
 }
@@ -89,6 +95,7 @@ function ProjectBlock({
   earned: number;
 }) {
   const { role } = useMember();
+  const attribute = useAttribution();
   const ctx = useWriteContext();
   const { projectId, setProjectId } = useActiveProject();
   const effects = entryEffects(entries);
@@ -198,6 +205,7 @@ function ProjectBlock({
             effect={effects.get(e.id) ?? 0}
             reversed={reversed.has(e.id)}
             canReverse={role === 'owner'}
+            who={attribute?.(e)}
             onReverse={() => confirmReverse(e)}
           />
         ))}
@@ -351,14 +359,16 @@ export default function WorkerDetail() {
 }
 
 const styles = StyleSheet.create({
+  entryItem: {
+    paddingVertical: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
   entry: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 64,
-    paddingVertical: space.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
+    minHeight: 48,
     gap: space.sm,
   },
   struck: { textDecorationLine: 'line-through', color: colors.muted },

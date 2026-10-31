@@ -1,146 +1,63 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { type ComponentProps, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useExpenseCategories, useProjectAssignments, useProjectEntries, useProjectExpenses } from '@/db/hooks';
-import { reverseExpense } from '@/db/mutations';
-import type { ProjectExpense } from '@/db/schema';
-import { reversedIds } from '@/lib/balance';
-import { formatDay, presetRange, type RangePreset, today, weekday } from '@/lib/dates';
-import { cancelledIds, type DayRange, inRange, labourPayments, liveExpenses, projectSpend } from '@/lib/expenses';
+import { useExpenseCategories, useProjectEntries, useProjectExpenses } from '@/db/hooks';
+import { presetRange, today } from '@/lib/dates';
+import { CASH_KINDS, inRange, projectSpend } from '@/lib/expenses';
 import { useActiveProject } from '@/state/active-project';
-import { useMember, useWriteContext } from '@/state/session';
-import { entryKindLabel, expenseCategoryLabel, lang, t } from '@/i18n';
+import { expenseCategoryLabel, isUrdu, t } from '@/i18n';
 import { Chip } from '@/ui/chip';
 import { Card, Empty, Row } from '@/ui/controls';
 import { Fab } from '@/ui/fab';
-import { RangePicker, rangeLabel } from '@/ui/range-picker';
+import { type Period, PeriodChips, periodParams, periodRange } from '@/ui/period-filter';
+import { rangeLabel } from '@/ui/range-picker';
 import { Money, T } from '@/ui/text';
 import { colors, space } from '@/ui/theme';
 
-const PRESETS: { value: RangePreset; label: string }[] = [
-  { value: 'today', label: t.expense.filterToday },
-  { value: 'week', label: t.expense.filterWeek },
-  { value: 'month', label: t.expense.filterMonth },
-  { value: 'lastMonth', label: t.expense.filterLastMonth },
-  { value: 'all', label: t.expense.filterAll },
-];
-
 type Kind = 'all' | 'labour' | 'site';
-
-/** One line of the daybook: a site expense, or cash handed to a worker. */
-type Item =
-  | { type: 'site'; id: string; date: string; at: string; e: ProjectExpense }
-  | {
-      type: 'labour';
-      id: string;
-      date: string;
-      at: string;
-      kind: string;
-      paisa: number;
-      workerId: string;
-      worker: string;
-    };
 
 /**
  * Everything spent on the active project in a period: cash handed to workers (advances
- * and payments from their ledgers) and site expenses (diesel, chai, material…). Date
- * presets or any from–to range; a second filter splits workers from site. The list reads
- * like a daybook — grouped by day, newest first, with each day's total.
+ * and payments from their ledgers) and site expenses by category (diesel, chai,
+ * material…). Date presets or any from–to range; a second filter splits workers from
+ * site. Each line opens its entries for the same period (expense-category).
  */
 export default function ProjectExpenses() {
   const { projectId } = useActiveProject();
   const pid = projectId ?? '';
   const rows = useProjectExpenses(pid);
   const ledger = useProjectEntries(pid);
-  const assignments = useProjectAssignments(pid);
   const categories = useExpenseCategories();
-  const { role } = useMember();
-  const ctx = useWriteContext();
 
   const now = today();
-  const [preset, setPreset] = useState<RangePreset | 'custom'>('month');
-  const [custom, setCustom] = useState<DayRange | null>(null);
-  const [picking, setPicking] = useState(false);
+  // Opens on this month, unless nothing was spent this month yet (the 1st, or a quiet
+  // site): then on everything, so the screen never opens empty while the project card
+  // shows a total "since start". A period the user picks always wins.
+  const [picked, setPicked] = useState<Period | null>(null);
+  const month = presetRange('month', now);
+  const spentThisMonth =
+    rows.some((e) => inRange(e.date, month)) ||
+    ledger.some((e) => CASH_KINDS.includes(e.kind) && inRange(e.date, month));
+  const period: Period = picked ?? { preset: spentThisMonth ? 'month' : 'all' };
   const [kind, setKind] = useState<Kind>('all');
-  const range = preset === 'custom' && custom ? custom : presetRange(preset === 'custom' ? 'month' : preset, now);
+  const range = periodRange(period, now);
 
   const names = new Map(categories.map((c) => [c.id, expenseCategoryLabel(c.name)]));
-  const workerOf = new Map(assignments.map((a) => [a.id, { id: a.worker_id, name: a.worker_name }]));
+  const open = (category: string) =>
+    router.push({ pathname: '/expense-category', params: { category, ...periodParams(period, now) } });
   const spend = projectSpend(rows, ledger, range);
-  const cancelledSite = cancelledIds(rows);
-  const liveSite = new Set(liveExpenses(rows).map((e) => e.id));
-  const reversedLedger = reversedIds(ledger);
-  const liveLabour = new Set(labourPayments(ledger).map((e) => e.id));
-  const canCancel = role === 'owner';
-
-  const items: Item[] = [];
-  if (kind !== 'labour') {
-    for (const e of rows) {
-      if (inRange(e.date, range)) items.push({ type: 'site', id: e.id, date: e.date, at: e.created_at ?? '', e });
-    }
-  }
-  if (kind !== 'site') {
-    for (const e of ledger) {
-      if ((e.kind !== 'advance' && e.kind !== 'payment') || !inRange(e.date, range)) continue;
-      const w = workerOf.get(e.assignment_id);
-      items.push({
-        type: 'labour',
-        id: e.id,
-        date: e.date,
-        at: e.created_at ?? '',
-        kind: e.kind,
-        paisa: e.amount_paisa,
-        workerId: w?.id ?? '',
-        worker: w?.name ?? '',
-      });
-    }
-  }
-  items.sort((a, b) => (a.date === b.date ? b.at.localeCompare(a.at) : b.date.localeCompare(a.date)));
-
-  const days: { day: string; items: Item[]; total: number }[] = [];
-  for (const it of items) {
-    let group = days[days.length - 1];
-    if (!group || group.day !== it.date) {
-      group = { day: it.date, items: [], total: 0 };
-      days.push(group);
-    }
-    group.items.push(it);
-    if (it.type === 'site' && liveSite.has(it.id)) group.total += it.e.amount_paisa;
-    if (it.type === 'labour' && liveLabour.has(it.id)) group.total += it.paisa;
-  }
 
   const shownTotal = kind === 'labour' ? spend.labour : kind === 'site' ? spend.site : spend.total;
-  const maxShare = Math.max(1, spend.labour, ...spend.byCategory.values());
-
-  function confirmCancel(e: ProjectExpense) {
-    Alert.alert(t.expense.cancel, t.expense.cancelConfirm, [
-      { text: t.action.cancel, style: 'cancel' },
-      { text: t.action.confirm, style: 'destructive', onPress: () => reverseExpense(ctx, e) },
-    ]);
-  }
+  const maxShare = Math.max(1, Math.abs(spend.labour), ...spend.byCategory.values());
 
   return (
     <SafeAreaView edges={['bottom']} style={styles.screen}>
-      {/* Fixed: when, and what kind. Only the summary and the daybook scroll. */}
+      {/* Fixed: when, and what kind. The summary scrolls under them. */}
       <View style={styles.top}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0 }}
-          contentContainerStyle={styles.chips}>
-          {PRESETS.map((p) => (
-            <Chip key={p.value} label={p.label} selected={preset === p.value} onPress={() => setPreset(p.value)} />
-          ))}
-          <Chip
-            icon="calendar-range"
-            label={t.expense.chooseDates}
-            selected={preset === 'custom'}
-            onPress={() => setPicking(true)}
-          />
-        </ScrollView>
+        <PeriodChips value={period} onChange={setPicked} />
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -164,21 +81,25 @@ export default function ProjectExpenses() {
 
       <ScrollView contentContainerStyle={styles.body}>
         <Card>
-          <T variant="small">{preset === 'all' ? t.expense.filterAll : rangeLabel(range)}</T>
+          <T variant="small">{period.preset === 'all' ? t.expense.filterAll : rangeLabel(range)}</T>
           <Row style={{ justifyContent: 'space-between' }}>
             <T variant="bodyBold" style={{ flex: 1 }}>
               {kind === 'labour' ? t.expense.labour : kind === 'site' ? t.expense.site : t.expense.spendTotal}
             </T>
             <Money paisa={shownTotal} size={24} color={colors.brand} />
           </Row>
+          {shownTotal > 0 ? <T variant="small">{t.expense.tapCategoryHint}</T> : null}
           {/* Where the money went, longest bar first, so the biggest cost stands out. */}
-          {kind !== 'site' ? (
+          {/* Net cash to workers: what went out less what came back (واپسی). Negative
+              when more came back in the period than went out, and then says so. */}
+          {kind !== 'site' && spend.labour !== 0 ? (
             <Share
-              icon="hand-coin-outline"
-              label={t.expense.labour}
-              paisa={spend.labour}
+              icon={spend.labour > 0 ? 'hand-coin-outline' : 'cash-refund'}
+              label={spend.labour > 0 ? t.expense.labour : t.expense.labourReturned}
+              paisa={Math.abs(spend.labour)}
               max={maxShare}
-              tint={colors.siteInk}
+              tint={spend.labour > 0 ? colors.siteInk : colors.owed}
+              onPress={() => open('labour')}
             />
           ) : null}
           {kind !== 'labour'
@@ -192,132 +113,59 @@ export default function ProjectExpenses() {
                     paisa={paisa}
                     max={maxShare}
                     tint={colors.brand}
+                    onPress={() => open(id)}
                   />
                 ))
             : null}
         </Card>
 
-        {items.length === 0 ? <Empty text={t.expense.noneInRange} /> : null}
-        {items.length > 0 ? (
-          <T variant="small">{kind === 'site' ? (canCancel ? t.expense.cancelHint : '') : t.expense.labourTapHint}</T>
-        ) : null}
-
-        {days.map((d) => (
-          <View key={d.day} style={{ gap: space.sm }}>
-            <Row style={styles.dayHeader}>
-              <T variant="bodyBold">{weekday(d.day, lang)}</T>
-              <T variant="small" style={{ flex: 1 }}>
-                {formatDay(d.day, lang)}
-              </T>
-              <Money paisa={d.total} size={15} color={colors.muted} />
-            </Row>
-            {d.items.map((it) =>
-              it.type === 'labour' ? (
-                <Pressable
-                  key={it.id}
-                  onPress={() => it.workerId && router.push({ pathname: '/worker/[id]', params: { id: it.workerId, projectId: pid } })}
-                  style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.brandSoft }]}>
-                  <MaterialCommunityIcons name="hand-coin-outline" size={24} color={colors.siteInk} />
-                  <View style={{ flex: 1 }}>
-                    <T variant="bodyBold" style={reversedLedger.has(it.id) ? styles.struck : undefined}>
-                      {it.worker}
-                    </T>
-                    <T variant="small" style={reversedLedger.has(it.id) ? { color: colors.pending } : undefined}>
-                      {reversedLedger.has(it.id) ? t.expense.cancelled : entryKindLabel(it.kind)}
-                    </T>
-                  </View>
-                  <Money paisa={it.paisa} color={reversedLedger.has(it.id) ? colors.muted : colors.text} />
-                </Pressable>
-              ) : (
-                <SiteRow
-                  key={it.id}
-                  e={it.e}
-                  name={names.get(it.e.category_id) ?? ''}
-                  cancelled={cancelledSite.has(it.id)}
-                  onLongPress={canCancel ? () => confirmCancel(it.e) : undefined}
-                />
-              ),
-            )}
-          </View>
-        ))}
+        {shownTotal === 0 ? <Empty text={t.expense.noneInRange} /> : null}
       </ScrollView>
 
       <Fab icon="receipt-text-plus-outline" label={t.expense.add} onPress={() => router.push('/expense')} />
 
-      <RangePicker
-        visible={picking}
-        initial={custom}
-        onClose={() => setPicking(false)}
-        onPick={(r) => {
-          setCustom(r);
-          setPreset('custom');
-        }}
-      />
     </SafeAreaView>
   );
 }
 
+/** One line of the summary: what, how much, a bar for its share. Opens its entries. */
 function Share({
   icon,
   label,
   paisa,
   max,
   tint,
+  onPress,
 }: {
   icon: ComponentProps<typeof MaterialCommunityIcons>['name'];
   label: string;
   paisa: number;
   max: number;
   tint: string;
+  onPress: () => void;
 }) {
   return (
-    <View style={{ gap: 2 }}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.share, pressed && { backgroundColor: colors.brandSoft }]}>
       <Row style={{ gap: space.xs }}>
-        <MaterialCommunityIcons name={icon} size={16} color={colors.muted} />
-        <T variant="small" style={{ flex: 1 }}>
+        <MaterialCommunityIcons name={icon} size={18} color={colors.muted} />
+        <T variant="body" style={{ flex: 1 }}>
           {label}
         </T>
-        <Money paisa={paisa} size={15} />
+        <Money paisa={paisa} size={16} />
+        {/* Forced RTL mirrors the layout but not the glyph, so pick the one that points inward. */}
+        <MaterialCommunityIcons name={isUrdu ? 'chevron-left' : 'chevron-right'} size={22} color={colors.border} />
       </Row>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${(paisa / max) * 100}%`, backgroundColor: tint }]} />
       </View>
-    </View>
-  );
-}
-
-function SiteRow({
-  e,
-  name,
-  cancelled,
-  onLongPress,
-}: {
-  e: ProjectExpense;
-  name: string;
-  cancelled: boolean;
-  onLongPress?: () => void;
-}) {
-  const isCorrection = e.kind === 'correction';
-  return (
-    <Pressable
-      onLongPress={onLongPress && !cancelled && !isCorrection ? onLongPress : undefined}
-      style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.brandSoft }]}>
-      <MaterialCommunityIcons name="receipt-text-outline" size={24} color={colors.brand} />
-      <View style={{ flex: 1 }}>
-        <T variant="bodyBold" style={[cancelled && styles.struck, isCorrection && { color: colors.pending }]}>
-          {isCorrection ? t.expense.correction : name}
-        </T>
-        {isCorrection ? <T variant="small">{name}</T> : e.note ? <T variant="small">{e.note}</T> : null}
-        {cancelled ? (
-          <T variant="small" style={{ color: colors.pending }}>
-            {t.expense.cancelled}
-          </T>
-        ) : null}
-      </View>
-      <Money paisa={e.amount_paisa} color={isCorrection || cancelled ? colors.muted : colors.text} />
     </Pressable>
   );
 }
+
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
@@ -333,21 +181,6 @@ const styles = StyleSheet.create({
   body: { padding: space.lg, paddingBottom: 96, gap: space.md },
   track: { height: 6, borderRadius: 3, backgroundColor: colors.brandSoft, overflow: 'hidden' },
   fill: { height: 6, borderRadius: 3 },
-  dayHeader: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    paddingBottom: space.xs,
-    paddingHorizontal: space.xs,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    padding: space.md,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  struck: { textDecorationLine: 'line-through', color: colors.muted },
+  // A comfortable touch target that still reads as one line of the card.
+  share: { gap: space.xs, paddingVertical: space.sm, paddingHorizontal: space.xs, marginHorizontal: -space.xs, borderRadius: 8 },
 });

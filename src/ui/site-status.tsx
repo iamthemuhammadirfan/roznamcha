@@ -1,9 +1,9 @@
-// The top of Settings: a full-width stage that continues the header, with who this
-// phone belongs to and whether its data is safe. At its centre, a laser level: an
-// emitter whose beam runs to both edges, coloured by the sync state.
+// The top of Settings (SiteStatus): an identity card with the sync state, and the
+// pieces the pages it opens share — the readout stage under their header, and the
+// laser-level line that draws an update's download progress.
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useFocusEffect } from 'expo-router';
-import { Fragment, type ReactNode, useCallback, useEffect } from 'react';
+import { Fragment, useCallback, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -13,20 +13,17 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 
 import { isUrdu } from '@/i18n';
 
-import { type IconName } from './settings-list';
 import { Num, T } from './text';
 import { colors, space } from './theme';
 
 export type SyncState = 'saved' | 'pending' | 'offline';
 
-// Offline is a dim beam, not an alarm: entries are kept on the phone and upload later.
-const BEAM = { saved: 'laser', pending: 'site', offline: 'muted' } as const satisfies Record<SyncState, keyof typeof colors>;
-const CORE_ICON: Record<SyncState, IconName> = { saved: 'check', pending: 'arrow-up', offline: 'cloud-off-outline' };
 
 // The sweep starts once the tab switch has settled, so it is actually seen, and eases
 // out like a beam reaching the walls. Hoisted so a focus doesn't rebuild them.
@@ -98,34 +95,52 @@ export function LaserLine({
   );
 }
 
-/** The emitter: a lit core inside two rings, with the beam leaving both sides. */
-function Level({ state }: { state: SyncState }) {
-  const color = colors[BEAM[state]];
-  // One animation drives both halves of the beam.
-  const sweep = useSweep();
+const DOT = { saved: 'owed', pending: 'pending', offline: 'muted' } as const satisfies Record<SyncState, keyof typeof colors>;
+const TINT = { saved: 'owedSoft', pending: 'pendingSoft', offline: 'bg' } as const satisfies Record<SyncState, keyof typeof colors>;
+const PULSE = { duration: 1600, easing: Easing.out(Easing.quad) };
+
+/**
+ * The status dot and its ripple: the screen's only motion, and it means something.
+ * Saved: two ripples each time the screen comes into view, then still. Uploading: a
+ * steady pulse until the queue is empty. Offline: no motion — nothing is happening.
+ */
+function Pulse({ state }: { state: SyncState }) {
+  const reduceMotion = useReducedMotion();
+  const p = useSharedValue(0);
+  useFocusEffect(
+    useCallback(() => {
+      if (reduceMotion || state === 'offline') return;
+      p.set(0);
+      p.set(withDelay(SWEEP_DELAY, withRepeat(withTiming(1, PULSE), state === 'pending' ? -1 : 2, false)));
+      return () => {
+        cancelAnimation(p);
+        p.set(0);
+      };
+    }, [reduceMotion, state, p]),
+  );
+  const ring = useAnimatedStyle(() => ({
+    opacity: p.get() === 0 ? 0 : 0.5 * (1 - p.get()),
+    transform: [{ scale: 1 + p.get() * 1.6 }],
+  }));
+  const color = colors[DOT[state]];
   return (
-    <View style={styles.level} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-      <View style={styles.half}>
-        <LaserLine color={color} scale={sweep} from="end" />
-      </View>
-      <View style={[styles.ring, styles.outerRing]}>
-        <View style={[styles.ring, styles.innerRing]}>
-          <View style={[styles.ring, styles.core, { backgroundColor: color, boxShadow: `0 0 18px 2px ${color}` }]}>
-            <MaterialCommunityIcons name={CORE_ICON[state]} size={20} color={colors.brand} />
-          </View>
-        </View>
-      </View>
-      <View style={styles.half}>
-        <LaserLine color={color} scale={sweep} from="start" />
-      </View>
+    <View style={styles.pulse}>
+      <Animated.View style={[styles.ripple, { backgroundColor: color }, ring]} />
+      <View style={[styles.dot, { backgroundColor: color }]} />
     </View>
   );
 }
 
+/**
+ * The top of Settings: whose phone this is and whether its data is safe, on one card.
+ * The badge speaks the same language as the "entered by" line on entries — green with a
+ * tie for the owner, site yellow with a hard hat for a munshi.
+ */
 export function SiteStatus({
   business,
   name,
   role,
+  owner,
   email,
   sync,
   readouts,
@@ -134,40 +149,76 @@ export function SiteStatus({
   /** The signed-in member's own name, when they have one. */
   name?: string | null;
   role: string;
+  owner: boolean;
   email?: string | null;
-  /** Absent in local mode: nothing syncs, so there is no beam. */
-  sync?: { state: SyncState; headline: ReactNode };
-  /** Instrument readouts along the bottom: a value over its label. */
+  /** Absent in local mode: nothing syncs. */
+  sync?: { state: SyncState; label: string; count?: number; hint?: string };
+  /** Small readouts along the foot: a label beside its value. */
   readouts: Readout[];
 }) {
   return (
-    <View style={styles.stage}>
-      <View style={styles.who}>
-        {/* Stretched: shrink-wrapped Nastaliq gets its last word dropped on Android. */}
-        <T variant="title" style={styles.business}>
-          {business}
-        </T>
-        <View style={styles.identity}>
-          {name ? (
-            <T variant="bodyBold" style={{ color: colors.white }}>
-              {name}
+    <View style={styles.wrap}>
+      <View style={styles.card}>
+        <View style={styles.who}>
+          <View style={[styles.badge, { backgroundColor: owner ? colors.brand : colors.site }]}>
+            <MaterialCommunityIcons
+              name={owner ? 'account-tie' : 'account-hard-hat'}
+              size={30}
+              color={owner ? colors.white : colors.siteInk}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            {/* Stretched: shrink-wrapped Nastaliq gets its last word dropped on Android. */}
+            <T variant="h1" style={styles.stretch}>
+              {business}
             </T>
-          ) : null}
-          <T variant="small" style={styles.onBrand}>
-            {role}
-          </T>
-          {email ? <Num style={[styles.onBrand, styles.email]}>{email}</Num> : null}
+            <View style={styles.identity}>
+              {name ? <T variant="bodyBold">{name}</T> : null}
+              <View style={[styles.role, { backgroundColor: owner ? colors.brandSoft : colors.pendingSoft }]}>
+                <T variant="small" style={{ color: owner ? colors.brand : colors.siteInk }}>
+                  {role}
+                </T>
+              </View>
+            </View>
+            {email ? (
+              <Num numberOfLines={1} style={styles.email}>
+                {email}
+              </Num>
+            ) : null}
+          </View>
+        </View>
+
+        {sync ? (
+          <View
+            style={[styles.sync, { backgroundColor: colors[TINT[sync.state]] }]}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={sync.count ? `${sync.count} ${sync.label}` : sync.label}>
+            <Pulse state={sync.state} />
+            <View style={{ flex: 1 }}>
+              <View style={styles.syncLine}>
+                {sync.count ? (
+                  <Num bold style={[styles.count, { color: colors[DOT[sync.state]] }]}>
+                    {sync.count}
+                  </Num>
+                ) : null}
+                <T variant="bodyBold" style={[styles.stretchRow, { color: sync.state === 'offline' ? colors.text : colors[DOT[sync.state]] }]}>
+                  {sync.label}
+                </T>
+              </View>
+              {sync.hint ? <T variant="small">{sync.hint}</T> : null}
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.footer}>
+          {readouts.map((r) => (
+            <View key={r.label} style={styles.footItem}>
+              <T variant="small">{r.label}</T>
+              <Num style={styles.footValue}>{r.value}</Num>
+            </View>
+          ))}
         </View>
       </View>
-
-      {sync ? (
-        <View>
-          <Level state={sync.state} />
-          <View style={styles.headline}>{sync.headline}</View>
-        </View>
-      ) : null}
-
-      <Readouts readouts={readouts} />
     </View>
   );
 }
@@ -208,25 +259,39 @@ export function ListStage({ readouts }: { readouts: Readout[] }) {
 }
 
 const styles = StyleSheet.create({
-  level: { flexDirection: 'row', alignItems: 'center' },
-  half: { flex: 1 },
-  ring: { borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  outerRing: { width: 88, height: 88, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
-  innerRing: { width: 58, height: 58, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
-  core: { width: 32, height: 32 },
-  stage: { backgroundColor: colors.brand, paddingBottom: space.lg, gap: space.md },
-  who: { alignItems: 'center', paddingHorizontal: space.lg },
-  business: { color: colors.white, textAlign: 'center', alignSelf: 'stretch' },
-  identity: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap', justifyContent: 'center' },
-  onBrand: { color: colors.brandSoft },
-  email: { fontSize: 14, lineHeight: 28 },
-  headline: {
+  wrap: { paddingHorizontal: space.lg, paddingTop: space.lg },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space.lg,
+    gap: space.md,
+  },
+  who: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
+  badge: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  stretch: { alignSelf: 'stretch' },
+  stretchRow: { flex: 1 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
+  role: { borderRadius: 999, paddingHorizontal: space.md },
+  email: { fontSize: 14, lineHeight: 24, color: colors.muted },
+  sync: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: space.sm,
-    paddingHorizontal: space.lg,
+    gap: space.md,
+    borderRadius: 12,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
+  syncLine: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  count: { fontSize: 20, lineHeight: 30 },
+  pulse: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  ripple: { position: 'absolute', width: 14, height: 14, borderRadius: 7 },
+  dot: { width: 14, height: 14, borderRadius: 7 },
+  footer: { flexDirection: 'row', flexWrap: 'wrap', columnGap: space.lg },
+  footItem: { flexDirection: 'row', alignItems: 'center', gap: space.xs },
+  footValue: { fontSize: 14, lineHeight: 24, color: colors.text },
+  onBrand: { color: colors.brandSoft },
   readouts: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: space.lg },
   rule: { width: 1, alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.18)' },
   readout: { flex: 1, alignItems: 'center', paddingHorizontal: space.sm },

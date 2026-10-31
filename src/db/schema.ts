@@ -81,6 +81,8 @@ export const attendance = sqliteTable('attendance', {
   overtime_hours: real('overtime_hours').notNull(),
   rate_applied_paisa: integer('rate_applied_paisa').notNull(),
   marked_at: text('marked_at'),
+  /** Set by the server when the row arrives; the phone never writes it. Null on old rows. */
+  received_at: text('received_at'),
   ...owned(),
 });
 
@@ -94,6 +96,8 @@ export const ledgerEntry = sqliteTable('ledger_entry', {
   ref_code: text('ref_code').notNull(),
   reverses_id: text('reverses_id'),
   receipt_sent_at: text('receipt_sent_at'),
+  /** Set by the server when the row arrives; the phone never writes it. Null on old rows. */
+  received_at: text('received_at'),
   ...owned(),
 });
 
@@ -107,6 +111,8 @@ export const settlement = sqliteTable('settlement', {
   paid_paisa: integer('paid_paisa').notNull(),
   carried_forward_paisa: integer('carried_forward_paisa').notNull(),
   settled_at: text('settled_at'),
+  /** Set by the server when the row arrives; the phone never writes it. Null on old rows. */
+  received_at: text('received_at'),
   ...owned(),
 });
 
@@ -128,6 +134,8 @@ export const projectExpense = sqliteTable('project_expense', {
   amount_paisa: integer('amount_paisa').notNull(),
   note: text('note'),
   reverses_id: text('reverses_id'),
+  /** Set by the server when the row arrives; the phone never writes it. Null on old rows. */
+  received_at: text('received_at'),
   ...owned(),
 });
 

@@ -72,6 +72,7 @@ export default function AppLayout() {
       <Stack.Screen name="member-details" options={{ headerTitle: title(t.team.details, false) }} />
       <Stack.Screen name="expense" options={{ headerTitle: title(t.expense.add) }} />
       <Stack.Screen name="project-expenses" options={{ headerTitle: title(t.expense.title) }} />
+      <Stack.Screen name="expense-category" options={{ headerTitle: title(t.expense.title) }} />
       <Stack.Screen name="expense-categories" options={{ headerTitle: title(t.expense.categories, false) }} />
       <Stack.Screen name="trades" options={{ headerTitle: title(t.trades.title, false) }} />
       <Stack.Screen name="assign" options={{ headerTitle: title(t.assignment.title) }} />

@@ -4,7 +4,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { getRandomBytes, randomUUID } from 'expo-crypto';
 
-import type { DayStatus } from '@/lib/attendance';
+import { clashingMarks, type DayStatus } from '@/lib/attendance';
 import { today } from '@/lib/dates';
 import { makeRefCode } from '@/lib/ref-code';
 
@@ -237,6 +237,13 @@ export interface AttendanceMark {
   status: DayStatus;
 }
 
+/** A mark would put a worker on more than one day's work across projects. */
+export class AttendanceClashError extends Error {
+  constructor(public assignmentId: string) {
+    super('worker already marked on another project that day');
+  }
+}
+
 /**
  * Saves one day's haazri. One row per (assignment, date): an existing row gets its
  * status changed, otherwise a row is created carrying today's daily wage, so a later
@@ -247,6 +254,23 @@ export async function saveAttendance(ctx: WriteContext, date: string, marks: Att
   if (marks.length === 0) return;
   const ids = marks.map((m) => m.assignmentId);
   await db.transaction(async (tx) => {
+    // A worker's marks on other projects that day; together they can't pass one day.
+    // The server checks again (attendance_one_day_check), for two phones saving offline.
+    const workerOf = new Map(
+      (await tx.select({ id: assignment.id, worker_id: assignment.worker_id }).from(assignment).where(inArray(assignment.id, ids))).map(
+        (a) => [a.id, a.worker_id],
+      ),
+    );
+    const sameDay = await tx
+      .select({ assignment_id: attendance.assignment_id, worker_id: assignment.worker_id, status: attendance.status })
+      .from(attendance)
+      .innerJoin(assignment, eq(assignment.id, attendance.assignment_id))
+      .where(and(eq(attendance.date, date), inArray(assignment.worker_id, [...new Set(workerOf.values())])));
+    for (const m of marks) {
+      const elsewhere = sameDay.filter((r) => r.worker_id === workerOf.get(m.assignmentId) && r.assignment_id !== m.assignmentId);
+      if (clashingMarks(m.status, elsewhere).length > 0) throw new AttendanceClashError(m.assignmentId);
+    }
+
     const existing = await tx
       .select()
       .from(attendance)
@@ -285,7 +309,7 @@ export async function saveAttendance(ctx: WriteContext, date: string, marks: Att
 
 // ─── Ledger (append-only) ────────────────────────────────────────────────────
 
-export type NewEntryKind = 'advance' | 'payment' | 'deduction' | 'bonus';
+export type NewEntryKind = 'advance' | 'payment' | 'deduction' | 'bonus' | 'repayment';
 
 export interface EntryInput {
   assignmentId: string;

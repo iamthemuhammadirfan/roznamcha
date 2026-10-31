@@ -2,7 +2,7 @@
 // ledger every time it is shown. Positive = the business owes the worker.
 
 export type AttendanceStatus = 'full' | 'half' | 'absent' | 'overtime';
-export type EntryKind = 'advance' | 'payment' | 'deduction' | 'bonus' | 'correction';
+export type EntryKind = 'advance' | 'payment' | 'deduction' | 'bonus' | 'repayment' | 'correction';
 
 export interface AttendanceLike {
   status: AttendanceStatus | string;
@@ -34,6 +34,8 @@ export function attendanceEarning(a: AttendanceLike): number {
 function directEffect(kind: string, amount: number): number {
   switch (kind) {
     case 'bonus':
+    // واپسی: cash the worker hands back. The opposite of an advance.
+    case 'repayment':
       return amount;
     case 'advance':
     case 'payment':

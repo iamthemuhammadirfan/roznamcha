@@ -1,9 +1,10 @@
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
 
-import { activeOn, coverage, monthWeeks, nextStatus, summarize } from './attendance';
+import { flagsFor, hasFlags, localDayOf, parseTimestamp } from './attribution';
+import { activeOn, clashingMarks, coverage, monthWeeks, nextStatus, summarize } from './attendance';
 import { attendanceEarning, computeBalance, reversedIds, splitBalances } from './balance';
-import { projectSpend, summarizeExpenses, summarizeRange } from './expenses';
+import { labourCash, projectSpend, summarizeExpenses, summarizeRange } from './expenses';
 import { addDays, daysBetween, presetRange, formatDay, formatDayUr, weekday } from './dates';
 import { formatRupees, parseRupees, toWhatsAppNumber } from './money';
 import { makeRefCode } from './ref-code';
@@ -240,5 +241,71 @@ describe('project spending', () => {
       october,
     );
     expect(s.labour).toBe(0);
+  });
+});
+
+describe('attribution', () => {
+  test('reads server and phone timestamps', () => {
+    expect(parseTimestamp('2026-10-17 19:07:00+00')?.toISOString()).toBe('2026-10-17T19:07:00.000Z');
+    expect(parseTimestamp('2026-10-17T19:07:00.000Z')?.toISOString()).toBe('2026-10-17T19:07:00.000Z');
+    expect(parseTimestamp('nonsense')).toBeNull();
+    expect(localDayOf('nonsense-ish')).toBe('nonsense-i');
+  });
+
+  test('flags backdated entries, late uploads and a fast phone clock', () => {
+    // Entered on the day, uploaded a minute later: nothing to see.
+    const ok = flagsFor('2026-10-20', '2026-10-20T07:00:00.000Z', '2026-10-20 07:01:00+00');
+    expect(hasFlags(ok)).toBe(false);
+    // Two days late is still normal for a munshi who syncs every other day.
+    expect(flagsFor('2026-10-18', '2026-10-20T07:00:00.000Z', '2026-10-20 07:01:00+00').backdatedDays).toBeNull();
+    expect(flagsFor('2026-10-15', '2026-10-20T07:00:00.000Z', '2026-10-20 07:01:00+00').backdatedDays).toBe(5);
+    // Made on the phone at 7:00, reached the server 20 hours later.
+    expect(flagsFor('2026-10-20', '2026-10-20T07:00:00.000Z', '2026-10-21 03:00:00+00').uploadedLateHours).toBe(20);
+    // The phone says an hour after the server received it.
+    expect(flagsFor('2026-10-20', '2026-10-20T08:00:00.000Z', '2026-10-20 07:00:00+00').clockAhead).toBe(true);
+  });
+
+});
+
+describe('one day per worker across projects', () => {
+  const at = (status: string) => ({ status });
+  test('blocks a second full day, allows half and half', () => {
+    expect(clashingMarks('full', [at('full')])).toHaveLength(1);
+    expect(clashingMarks('half', [at('full')])).toHaveLength(1);
+    expect(clashingMarks('full', [at('half')])).toHaveLength(1);
+    expect(clashingMarks('half', [at('half')])).toHaveLength(0);
+    expect(clashingMarks('half', [at('half'), at('half')])).toHaveLength(2);
+  });
+  test('absent never clashes', () => {
+    expect(clashingMarks('absent', [at('full')])).toHaveLength(0);
+    expect(clashingMarks('full', [at('absent')])).toHaveLength(0);
+    expect(clashingMarks('full', [])).toHaveLength(0);
+  });
+});
+
+describe('repayment (واپسی)', () => {
+  const e = (id: string, kind: string, amount: number, reverses: string | null = null, date = '2026-10-10') => ({
+    id,
+    kind,
+    amount_paisa: amount,
+    reverses_id: reverses,
+    date,
+  });
+  test('lowers what the worker owes', () => {
+    // 50,000 advance, 40,000 back: he owes 10,000.
+    expect(computeBalance([], [e('a', 'advance', 5000000), e('r', 'repayment', 4000000)]).balance).toBe(-1000000);
+  });
+  test('a correction cancels a repayment like any other entry', () => {
+    const entries = [e('a', 'advance', 5000000), e('r', 'repayment', 4000000), e('c', 'correction', 4000000, 'r')];
+    expect(computeBalance([], entries).balance).toBe(-5000000);
+  });
+  test('comes off the cash paid to workers', () => {
+    const all = { from: '0000-01-01', to: '9999-12-31' };
+    expect(labourCash(e('r', 'repayment', 100))).toBe(-100);
+    expect(projectSpend([], [e('a', 'advance', 5000000), e('r', 'repayment', 4000000)], all).labour).toBe(1000000);
+    // A cancelled repayment isn't cash back.
+    expect(
+      projectSpend([], [e('a', 'advance', 5000000), e('r', 'repayment', 4000000), e('c', 'correction', 4000000, 'r')], all).labour,
+    ).toBe(5000000);
   });
 });

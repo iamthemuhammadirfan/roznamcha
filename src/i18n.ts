@@ -61,7 +61,7 @@ export async function setLanguage(next: Lang) {
   await restart();
 }
 
-const ENTRY_KINDS = ['advance', 'payment', 'deduction', 'bonus', 'correction'] as const;
+const ENTRY_KINDS = ['advance', 'payment', 'deduction', 'bonus', 'repayment', 'correction'] as const;
 
 export function entryKindLabel(kind: string, s: Strings = t): string {
   return (ENTRY_KINDS as readonly string[]).includes(kind) ? s.entry[kind as (typeof ENTRY_KINDS)[number]] : kind;

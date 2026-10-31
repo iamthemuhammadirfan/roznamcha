@@ -31,13 +31,16 @@ import { WorkerAvatar } from '@/ui/worker-avatar';
 const KINDS: { value: NewEntryKind; label: string; icon: ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
   { value: 'advance', label: t.entry.advance, icon: 'hand-coin-outline' },
   { value: 'payment', label: t.entry.payment, icon: 'cash-check' },
+  // Cash coming back from the worker: lowers what he owes.
+  { value: 'repayment', label: t.entry.repayment, icon: 'cash-refund' },
 ];
 
 /**
- * Money handed to a worker on the active project, written like a cash slip: who, what
- * kind, how much — with the worker's balance before and after shown right under the
- * amount, so both sides see the effect before the cash leaves the hand. Saving goes
- * straight to the parchi.
+ * Money between the business and a worker on the active project, written like a cash
+ * slip: who, what kind, how much — with the worker's balance before and after shown
+ * right under the amount, so both sides see the effect before the cash changes hands.
+ * An advance or payment goes to the worker; a واپسی (repayment) comes back from him.
+ * Saving goes straight to the parchi.
  */
 export default function NewEntry() {
   const params = useLocalSearchParams<{ workerId?: string }>();
@@ -67,6 +70,11 @@ export default function NewEntry() {
   const paisa = parseRupees(amount) ?? 0;
   const balanceNow = selected ? (balances.get(selected.id)?.balance ?? 0) : 0;
   const back = daysBetween(date, today());
+  const repaying = kind === 'repayment';
+  // Money going to the worker lowers what we owe him; money coming back raises it.
+  const balanceAfter = repaying ? balanceNow + paisa : balanceNow - paisa;
+  // What he owes us right now (0 if we owe him).
+  const owes = Math.max(0, -balanceNow);
 
   async function commit() {
     setBusy(true);
@@ -79,6 +87,19 @@ export default function NewEntry() {
     if (!parseRupees(amount)) return setError(t.entry.amountRequired);
     if (back < 0) return setError(t.entry.futureDate);
     setError(null);
+    // Handing back more than he owes is almost always a typo (400,000 for 40,000), but
+    // it can be real, so ask rather than refuse.
+    if (repaying && paisa > owes) {
+      Alert.alert(t.entry.repayTooMuchTitle, t.entry.repayTooMuchBody, [
+        { text: t.action.cancel, style: 'cancel' },
+        { text: t.action.confirm, onPress: confirmDate },
+      ]);
+      return;
+    }
+    confirmDate();
+  }
+
+  function confirmDate() {
     if (back > 7) {
       Alert.alert(t.entry.backdateTitle, t.entry.backdateBody, [
         { text: t.action.cancel, style: 'cancel' },
@@ -170,9 +191,11 @@ export default function NewEntry() {
         </View>
 
         <View style={styles.slip}>
+          {repaying ? <T variant="small">{t.entry.repayHelp}</T> : null}
           <AmountInput value={amount} onChange={setAmount} />
           {selected ? (
-            // What the parchi will say. Advances and payments both lower what we owe.
+            // What the parchi will say. Advances and payments lower what we owe; a
+            // repayment lowers what he owes.
             <View style={styles.preview}>
               <View style={styles.previewCell}>
                 <T variant="small">{t.entry.balanceNow}</T>
@@ -180,7 +203,7 @@ export default function NewEntry() {
               </View>
               <View style={styles.previewCell}>
                 <T variant="small">{t.entry.balanceAfter}</T>
-                <BalanceChip paisa={balanceNow - paisa} size={15} />
+                <BalanceChip paisa={balanceAfter} size={15} />
               </View>
             </View>
           ) : null}
@@ -221,13 +244,13 @@ const styles = StyleSheet.create({
     borderColor: colors.brand,
     overflow: 'hidden',
   },
+  // Three kinds side by side: the icon sits above the word so each fits a third.
   segmentItem: {
     flex: 1,
-    minHeight: 60,
-    flexDirection: 'row',
+    minHeight: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: space.sm,
+    paddingVertical: space.xs,
   },
   segmentOn: { backgroundColor: colors.brand },
   // The slip: the amount is the point of this screen, so it gets the size.
