@@ -3,16 +3,17 @@ import { useState } from 'react';
 import { Alert, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { type AssignmentWithWorker, useProjectAssignments, useProjectAttendance } from '@/db/hooks';
-import { saveAttendance } from '@/db/mutations';
+import { type AssignmentWithWorker, type DayMark, useMarksOn, useProjectAssignments, useProjectAttendance } from '@/db/hooks';
+import { AttendanceClashError, saveAttendance } from '@/db/mutations';
 import type { Attendance } from '@/db/schema';
-import { activeOn, type DayStatus, summarize } from '@/lib/attendance';
+import { activeOn, clashingMarks, type DayStatus, dayShare, summarize } from '@/lib/attendance';
 import { attendanceEarning } from '@/lib/balance';
 import { daysBetween, formatDay, today, weekday } from '@/lib/dates';
 import { useActiveProject } from '@/state/active-project';
 import { useMember, useWriteContext } from '@/state/session';
 import { lang, t } from '@/i18n';
 import { StatusCount, StatusPicker } from '@/ui/attendance';
+import { Attribution, useAttribution } from '@/ui/attribution';
 import { Banner, Button, Card, Empty, Row } from '@/ui/controls';
 import { Money, Num, T } from '@/ui/text';
 import { colors, space, TOUCH_MIN } from '@/ui/theme';
@@ -36,8 +37,10 @@ export default function AttendanceDay() {
   const pid = projectId ?? '';
   const { role } = useMember();
   const ctx = useWriteContext();
+  const attribute = useAttribution();
 
   const assignments = useProjectAssignments(pid);
+  const marksOnDay = useMarksOn(date);
   const existing = new Map<string, Attendance>();
   for (const r of useProjectAttendance(pid)) if (r.date === date) existing.set(r.assignment_id, r);
 
@@ -81,8 +84,18 @@ export default function AttendanceDay() {
   const unmarked = people.length - marked.length;
   const wages = marked.reduce((s, m) => s + attendanceEarning(m), 0);
 
+  /** This worker's marks on other projects the same day. */
+  function elsewhere(a: AssignmentWithWorker): DayMark[] {
+    return marksOnDay.filter((m) => m.worker_id === a.worker_id && m.assignment_id !== a.id);
+  }
+
   function set(a: AssignmentWithWorker, status: DayStatus) {
     if (isLocked(a)) return Alert.alert(t.attendance.lockedOld);
+    const clash = clashingMarks(status, elsewhere(a));
+    if (clash.length > 0) {
+      const where = clash.map((m) => `${m.project_code} ${m.project_name}`).join('\n');
+      return Alert.alert(t.attendance.clashTitle, `${a.worker_name}\n${where}\n\n${t.attendance.clashBody}`);
+    }
     setDraft((d) => {
       // Tapping a fresh pick again clears it, so a wrong tap can be undone before saving.
       if (d[a.id] === status && !existing.has(a.id)) {
@@ -104,7 +117,10 @@ export default function AttendanceDay() {
       router.back();
     } catch (e) {
       setBusy(false);
-      Alert.alert(t.common.error, String(e));
+      if (e instanceof AttendanceClashError) {
+        const who = people.find((p) => p.id === e.assignmentId)?.worker_name ?? '';
+        Alert.alert(t.attendance.clashTitle, `${who}\n\n${t.attendance.clashBody}`);
+      } else Alert.alert(t.common.error, String(e));
     }
   }
 
@@ -164,30 +180,50 @@ export default function AttendanceDay() {
         renderItem={({ item: a }) => {
           const status = statusOf(a);
           const edited = changes.includes(a);
+          const saved = existing.get(a.id);
           return (
-            <View style={[styles.row, edited && styles.unsaved, isLocked(a) && { opacity: 0.6 }]}>
-              <View style={{ flex: 1 }}>
-                <T variant="h2" style={{ fontSize: 20 }}>
-                  {a.worker_name}
-                </T>
-                {a.worker_father_name ? (
-                  <T variant="small">
-                    {t.worker.son} {a.worker_father_name}
+            <View style={[styles.item, edited && styles.unsaved, isLocked(a) && { opacity: 0.6 }]}>
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <T variant="h2" style={{ fontSize: 20 }}>
+                    {a.worker_name}
                   </T>
-                ) : null}
-                {status ? (
-                  <Money
-                    paisa={attendanceEarning({ status, rate_applied_paisa: rateOf(a), overtime_hours: 0 })}
-                    size={14}
-                    color={colors.muted}
-                  />
-                ) : (
-                  <T variant="small" style={{ color: colors.pending }}>
-                    {t.attendance.notMarked}
-                  </T>
-                )}
+                  {a.worker_father_name ? (
+                    <T variant="small">
+                      {t.worker.son} {a.worker_father_name}
+                    </T>
+                  ) : null}
+                  {status ? (
+                    <Money
+                      paisa={attendanceEarning({ status, rate_applied_paisa: rateOf(a), overtime_hours: 0 })}
+                      size={14}
+                      color={colors.muted}
+                    />
+                  ) : (
+                    <T variant="small" style={{ color: colors.pending }}>
+                      {t.attendance.notMarked}
+                    </T>
+                  )}
+                  {elsewhere(a)
+                    .filter((m) => dayShare(m.status) > 0)
+                    .map((m) => (
+                      <Row key={m.assignment_id} style={styles.elsewhere}>
+                        <T variant="small" style={{ color: colors.pending }}>
+                          {t.attendance.elsewhere}
+                        </T>
+                        <Num bold style={styles.elsewhereCode}>
+                          {m.project_code}
+                        </Num>
+                        <T variant="small" style={{ color: colors.pending }}>
+                          {m.status === 'half' ? t.attendance.half : t.attendance.full}
+                        </T>
+                      </Row>
+                    ))}
+                </View>
+                <StatusPicker value={status} onChange={(s) => set(a, s)} disabled={isLocked(a)} />
               </View>
-              <StatusPicker value={status} onChange={(s) => set(a, s)} disabled={isLocked(a)} />
+              {/* Who first marked this day; changing the mark later doesn't change who marked it. */}
+              {saved && attribute ? <Attribution info={attribute(saved)} /> : null}
             </View>
           );
         }}
@@ -240,12 +276,7 @@ function UnmarkedCount({ n }: { n: number }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   list: { padding: space.lg, flexGrow: 1 },
-  row: {
-    minHeight: TOUCH_MIN,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: space.sm,
+  item: {
     backgroundColor: colors.card,
     borderRadius: 12,
     borderWidth: 1,
@@ -253,6 +284,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
   },
+  row: {
+    minHeight: TOUCH_MIN - space.sm * 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: space.sm,
+  },
+  elsewhere: { gap: space.xs, flexWrap: 'wrap' },
+  elsewhereCode: { fontSize: 14, lineHeight: 22, color: colors.siteInk },
   // A thin amber edge on the reading-start side marks a row that changed since the last save.
   unsaved: { borderStartWidth: 4, borderStartColor: colors.pending },
   datePlate: {

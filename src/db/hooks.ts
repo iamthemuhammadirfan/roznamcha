@@ -131,6 +131,35 @@ export function useProjectAttendance(projectId: string) {
   );
 }
 
+/** A worker's mark on a date, with the project it's on. */
+export interface DayMark {
+  assignment_id: string;
+  worker_id: string;
+  project_id: string;
+  project_code: string;
+  project_name: string;
+  status: string;
+}
+
+/** Every mark on `date`, across all projects — to stop a worker being marked twice. */
+export function useMarksOn(date: string) {
+  return useLive<DayMark>(
+    db
+      .select({
+        assignment_id: attendance.assignment_id,
+        worker_id: assignment.worker_id,
+        project_id: assignment.project_id,
+        project_code: project.code,
+        project_name: project.name_ur,
+        status: attendance.status,
+      })
+      .from(attendance)
+      .innerJoin(assignment, eq(assignment.id, attendance.assignment_id))
+      .innerJoin(project, eq(project.id, assignment.project_id))
+      .where(eq(attendance.date, date)),
+  );
+}
+
 // ─── Worker scope ────────────────────────────────────────────────────────────
 
 export function useWorkers() {

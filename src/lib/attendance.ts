@@ -73,3 +73,19 @@ export function monthWeeks(year: number, month: number): (Day | null)[][] {
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
 }
+
+/** How much of a working day a mark is. Overtime is a full day plus hours. */
+export function dayShare(status: string): number {
+  return status === 'full' || status === 'overtime' ? 1 : status === 'half' ? 0.5 : 0;
+}
+
+/**
+ * A worker can't add up to more than one day across projects on the same date: a full
+ * day here and anything but absent there is a mistake (half here and half there is
+ * fine). Returns the marks elsewhere that rule `status` out, or none if it's allowed.
+ */
+export function clashingMarks<M extends { status: string }>(status: string, elsewhere: M[]): M[] {
+  const taken = elsewhere.reduce((s, m) => s + dayShare(m.status), 0);
+  if (dayShare(status) + taken <= 1) return [];
+  return elsewhere.filter((m) => dayShare(m.status) > 0);
+}

@@ -75,13 +75,22 @@ export interface LedgerLike {
   date: string;
 }
 
+/** Ledger kinds that move cash between the business and a worker. */
+export const CASH_KINDS = ['advance', 'payment', 'repayment'];
+
 /**
- * Cash handed to workers: advances and payments that weren't cancelled. Bonuses and
- * deductions move a balance but no cash, so they aren't spending.
+ * Cash between the business and workers that wasn't cancelled: advances and payments
+ * going out, repayments (واپسی) coming back. Bonuses and deductions move a balance but
+ * no cash, so they aren't spending.
  */
 export function labourPayments<E extends LedgerLike>(entries: E[]): E[] {
   const cancelled = new Set(entries.filter((e) => e.reverses_id).map((e) => e.reverses_id as string));
-  return entries.filter((e) => (e.kind === 'advance' || e.kind === 'payment') && !cancelled.has(e.id));
+  return entries.filter((e) => CASH_KINDS.includes(e.kind) && !cancelled.has(e.id));
+}
+
+/** What an entry cost the project in cash: positive going out, negative coming back. */
+export function labourCash(e: LedgerLike): number {
+  return e.kind === 'repayment' ? -e.amount_paisa : e.amount_paisa;
 }
 
 export interface ProjectSpend {
@@ -97,6 +106,6 @@ export function projectSpend(expenses: ExpenseLike[], ledger: LedgerLike[], rang
   const site = summarizeRange(expenses, range);
   const labour = labourPayments(ledger)
     .filter((e) => inRange(e.date, range))
-    .reduce((s, e) => s + e.amount_paisa, 0);
+    .reduce((s, e) => s + labourCash(e), 0);
   return { labour, site: site.total, total: labour + site.total, byCategory: site.byCategory };
 }

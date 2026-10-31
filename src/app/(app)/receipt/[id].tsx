@@ -80,7 +80,11 @@ export default function Receipt() {
 
   return (
     <Screen>
-      {!entry.receipt_sent_at ? <Banner text={t.receipt.sendNow} /> : <Banner tone="brand" text={t.receipt.sent} />}
+      {!entry.receipt_sent_at ? (
+        <Banner text={entry.kind === 'repayment' ? t.receipt.sendNowRepayment : t.receipt.sendNow} />
+      ) : (
+        <Banner tone="brand" text={t.receipt.sent} />
+      )}
       <View style={{ alignItems: 'center' }}>
         <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 12 }}>
           <Parchi ref={slip} data={data} />

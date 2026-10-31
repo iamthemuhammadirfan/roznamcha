@@ -35,23 +35,15 @@ export default function Settings() {
 
   const [dialog, setDialog] = useState<'language' | 'signOut' | null>(null);
 
-  // The stage's headline: what state the data on this phone is in, in one phrase.
+  // What state the data on this phone is in, in one phrase.
   const syncState: SyncState = !status.hasSynced || pending > 0 ? 'pending' : status.connected ? 'saved' : 'offline';
-  const headline =
-    pending > 0 ? (
-      <>
-        <Num bold style={styles.pendingCount}>
-          {pending}
-        </Num>
-        <T variant="title" style={styles.onBrand}>
-          {t.sync.pending}
-        </T>
-      </>
-    ) : (
-      <T variant="title" style={[styles.onBrand, styles.centred]}>
-        {!status.hasSynced ? t.sync.firstSync : status.connected ? t.sync.synced : t.sync.offline}
-      </T>
-    );
+  const sync = {
+    state: syncState,
+    label:
+      pending > 0 ? t.sync.pending : !status.hasSynced ? t.sync.firstSync : status.connected ? t.sync.synced : t.sync.offline,
+    count: pending > 0 ? pending : undefined,
+    hint: syncState === 'offline' ? t.sync.offlineHint : undefined,
+  };
 
   // What exactly this phone runs: the release, the installed APK, and the date of the
   // update on top of it (none when running what the APK shipped with).
@@ -70,8 +62,9 @@ export default function Settings() {
           business={member.businessName}
           name={myName}
           role={t.role[member.role]}
+          owner={isOwner}
           email={member.email}
-          sync={localMode ? undefined : { state: syncState, headline }}
+          sync={localMode ? undefined : sync}
           readouts={readouts}
         />
 
@@ -249,10 +242,6 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingBottom: space.xl },
   sections: { paddingTop: space.lg, gap: space.lg },
   inset: { paddingHorizontal: space.lg },
-  onBrand: { color: colors.white },
-  // Stretched: shrink-wrapped Nastaliq gets its last word dropped on Android.
-  centred: { textAlign: 'center', alignSelf: 'stretch' },
-  pendingCount: { color: colors.site, fontSize: 28, lineHeight: 36 },
   // Digits at the small size, muted like T's small variant.
   small: { fontSize: 12, lineHeight: 28, color: colors.muted },
   debug: { fontSize: 12, lineHeight: 28, color: colors.recover },
