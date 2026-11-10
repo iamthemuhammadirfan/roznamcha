@@ -7,6 +7,7 @@ import { type Balance, computeBalance } from '@/lib/balance';
 import { db } from './index';
 import {
   appConfig,
+  membershipProject,
   assignment,
   attendance,
   expenseCategory,
@@ -54,6 +55,11 @@ export function useMembers() {
   return useLive<typeof membership.$inferSelect>(
     db.select().from(membership).orderBy(desc(membership.role), asc(membership.email)),
   );
+}
+
+/** Every project picked for a munshi of this business (Team). */
+export function useMemberProjects() {
+  return useLive<typeof membershipProject.$inferSelect>(db.select().from(membershipProject));
 }
 
 export function useProjects() {

@@ -10,6 +10,7 @@ import {
   useAllAttendance,
   useAllEntries,
   useAllExpenses,
+  useMembers,
   useProjectsLoaded,
 } from '@/db/hooks';
 import type { Project } from '@/db/schema';
@@ -18,7 +19,7 @@ import { splitBalances } from '@/lib/balance';
 import { formatDay, presetRange, today, weekday } from '@/lib/dates';
 import { projectSpend } from '@/lib/expenses';
 import { useActiveProject } from '@/state/active-project';
-import { useSession } from '@/state/session';
+import { useMember, useSession } from '@/state/session';
 import { lang, t } from '@/i18n';
 import { BalanceSplit } from '@/ui/balance-chip';
 import { Chip } from '@/ui/chip';
@@ -52,6 +53,11 @@ type Filter = 'open' | 'pending' | 'closed';
 
 export function ProjectList() {
   const { localMode } = useSession();
+  const { role, userId } = useMember();
+  const me = useMembers().find((m) => m.user_id === userId);
+  // A munshi only gets the projects the owner picked for him; with none yet, say so
+  // instead of inviting him to create one.
+  const waitingForProjects = role === 'munshi' && me != null && !me.all_projects;
   const { projectId, setProjectId } = useActiveProject();
   const { projects, loading } = useProjectsLoaded();
   const assignments = useAllAssignments();
@@ -162,7 +168,17 @@ export function ProjectList() {
           </>
         }
         ListEmptyComponent={
-          loading ? null : <Empty text={query || filter !== 'open' ? t.project.noMatch : t.project.empty} />
+          loading ? null : (
+            <Empty
+              text={
+                query || filter !== 'open'
+                  ? t.project.noMatch
+                  : waitingForProjects
+                    ? t.team.access.munshiEmpty
+                    : t.project.empty
+              }
+            />
+          )
         }
         renderItem={({ item }) => (
           <ProjectBoard

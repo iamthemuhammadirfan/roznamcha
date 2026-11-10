@@ -1,25 +1,46 @@
 # Paste into the PowerSync dashboard → Sync Streams, then Validate and Deploy.
-# Each signed-in user gets every row of every business they are a member of, synced in
+# Each signed-in user gets the rows of every business they are a member of, synced in
 # full on connect (auto_subscribe) — the phone must hold the whole ledger to work offline.
+#
+# Projects are the exception: a munshi gets only the projects he works on (the same rule
+# as RLS, private.can_access_project). Owners and munshis with "All projects" get every
+# project of the business (whole_business); everyone else gets the ones picked for them
+# in membership_project (picked). A row both streams send arrives once.
 config:
   edition: 3
 with:
   my_businesses: SELECT business_id FROM membership WHERE user_id = auth.user_id()
+  whole_businesses: SELECT business_id FROM membership WHERE user_id = auth.user_id() AND (role = 'owner' OR all_projects)
+  my_projects: SELECT project_id FROM membership_project WHERE user_id = auth.user_id()
 streams:
+  # Shared by the whole business, whatever projects you work on.
   business_data:
     auto_subscribe: true
     queries:
       - SELECT * FROM business WHERE id IN my_businesses
       - SELECT * FROM membership WHERE business_id IN my_businesses
-      - SELECT * FROM project WHERE business_id IN my_businesses
+      - SELECT * FROM membership_project WHERE business_id IN my_businesses
       - SELECT * FROM worker WHERE business_id IN my_businesses
       - SELECT * FROM trade WHERE business_id IN my_businesses
-      - SELECT * FROM assignment WHERE business_id IN my_businesses
-      - SELECT * FROM attendance WHERE business_id IN my_businesses
-      - SELECT * FROM ledger_entry WHERE business_id IN my_businesses
-      - SELECT * FROM settlement WHERE business_id IN my_businesses
       - SELECT * FROM expense_category WHERE business_id IN my_businesses
-      - SELECT * FROM project_expense WHERE business_id IN my_businesses
+  whole_business:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM project WHERE business_id IN whole_businesses
+      - SELECT * FROM assignment WHERE business_id IN whole_businesses
+      - SELECT * FROM attendance WHERE business_id IN whole_businesses
+      - SELECT * FROM ledger_entry WHERE business_id IN whole_businesses
+      - SELECT * FROM settlement WHERE business_id IN whole_businesses
+      - SELECT * FROM project_expense WHERE business_id IN whole_businesses
+  picked:
+    auto_subscribe: true
+    queries:
+      - SELECT * FROM project WHERE id IN my_projects
+      - SELECT * FROM assignment WHERE project_id IN my_projects
+      - SELECT * FROM attendance WHERE assignment_id IN (SELECT id FROM assignment WHERE project_id IN my_projects)
+      - SELECT * FROM ledger_entry WHERE assignment_id IN (SELECT id FROM assignment WHERE project_id IN my_projects)
+      - SELECT * FROM settlement WHERE assignment_id IN (SELECT id FROM assignment WHERE project_id IN my_projects)
+      - SELECT * FROM project_expense WHERE project_id IN my_projects
   app_config:
     auto_subscribe: true
     query: SELECT * FROM app_config
