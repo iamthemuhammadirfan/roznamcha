@@ -3,6 +3,7 @@
 // not ledger rows, so there is nothing to queue offline.
 import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js';
 
+import type { ProjectAccess } from './access';
 import { supabase } from './supabase';
 
 /** Mirrors the function's codes, plus `offline` when the request never got there. */
@@ -48,7 +49,7 @@ export function cleanPhone(phone: string): string | null | false {
   return p.length >= 7 && p.length <= 20 ? p : false;
 }
 
-async function call(body: Record<string, string>): Promise<{ error: TeamError | null; restored?: boolean }> {
+async function call(body: Record<string, unknown>): Promise<{ error: TeamError | null; restored?: boolean }> {
   if (!supabase) return { error: 'offline' };
   const { data, error } = await supabase.functions.invoke<{ restored?: boolean }>('team', { body });
   if (!error) return { error: null, restored: Boolean(data?.restored) };
@@ -67,9 +68,28 @@ async function toTeamError(error: unknown): Promise<TeamError> {
   return 'failed';
 }
 
-/** `restored` when the email was a removed munshi, now back with this password. */
-export function createMunshi(businessId: string, name: string, phone: string, email: string, password: string) {
-  return call({ action: 'create', businessId, name: name.trim(), phone, email: email.trim(), password });
+/**
+ * `restored` when the email was a removed munshi, now back with this password. The
+ * munshi starts on the projects in `access`.
+ */
+export function createMunshi(
+  businessId: string,
+  name: string,
+  phone: string,
+  email: string,
+  password: string,
+  access: ProjectAccess,
+) {
+  return call({
+    action: 'create',
+    businessId,
+    name: name.trim(),
+    phone,
+    email: email.trim(),
+    password,
+    allProjects: access.all,
+    projectIds: access.ids,
+  });
 }
 
 export async function resetMunshiPassword(businessId: string, userId: string, password: string) {

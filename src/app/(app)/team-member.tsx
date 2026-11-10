@@ -2,7 +2,9 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet } from "react-native";
 
+import { useProjects } from "@/db/hooks";
 import { t } from "@/i18n";
+import { NO_ACCESS, type ProjectAccess } from "@/lib/access";
 import {
   cleanName,
   cleanPhone,
@@ -14,6 +16,7 @@ import {
 import { useMember } from "@/state/session";
 import { Banner, Button, Card, Field, Screen } from "@/ui/controls";
 import { HeaderTitle } from "@/ui/header";
+import { ProjectAccessPicker } from "@/ui/project-access";
 import { Num, T } from "@/ui/text";
 import { colors, fonts } from "@/ui/theme";
 
@@ -21,8 +24,8 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Owner only, opened from Settings → Team. With `userId`: set that munshi's password.
- * Without: create a new munshi (email + password). The password is shown in plain text
- * on purpose — the owner has to tell it to the munshi.
+ * Without: create a new munshi (email + password) and pick their projects. The password
+ * is shown in plain text on purpose — the owner has to tell it to the munshi.
  */
 export default function TeamMember() {
   const params = useLocalSearchParams<{
@@ -36,6 +39,8 @@ export default function TeamMember() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [access, setAccess] = useState<ProjectAccess>(NO_ACCESS);
+  const projects = useProjects();
   const [error, setError] = useState<TeamError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -79,6 +84,7 @@ export default function TeamMember() {
           cleanPhone(phone) || "",
           email,
           password,
+          access,
         );
     setBusy(false);
     if (result.error) return setError(result.error);
@@ -171,6 +177,14 @@ export default function TeamMember() {
         testID="team-password"
         style={styles.latin}
       />
+
+      {resetting ? null : (
+        <ProjectAccessPicker
+          projects={projects}
+          value={access}
+          onChange={setAccess}
+        />
+      )}
 
       {shown ? (
         <Banner tone="recover" text={t.team.errors[shown]} />

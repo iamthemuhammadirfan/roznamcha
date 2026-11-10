@@ -6,6 +6,7 @@ import { getRandomBytes, randomUUID } from 'expo-crypto';
 
 import { clashingMarks, type DayStatus } from '@/lib/attendance';
 import { today } from '@/lib/dates';
+import { pickChanges, type ProjectAccess } from '@/lib/access';
 import { makeRefCode } from '@/lib/ref-code';
 
 import { db } from './index';
@@ -15,6 +16,7 @@ import {
   expenseCategory,
   ledgerEntry,
   membership,
+  membershipProject,
   project,
   projectExpense,
   rejectedWrite,
@@ -113,6 +115,45 @@ export async function updateWorker(id: string, input: WorkerInput) {
  */
 export async function updateMemberDetails(id: string, name: string, phone: string | null) {
   await db.update(membership).set({ name, phone }).where(eq(membership.id, id));
+}
+
+/**
+ * Owner only (RLS and a trigger refuse anyone else): which projects a munshi works on.
+ * Writes only the difference, so a pick that already exists is never inserted twice —
+ * Postgres's unique (membership_id, project_id) isn't enforced on the phone.
+ */
+export async function setMemberProjects(
+  ctx: WriteContext,
+  member: { id: string; user_id: string; all_projects: boolean | null },
+  access: ProjectAccess,
+) {
+  await db.transaction(async (tx) => {
+    const rows = await tx
+      .select({ id: membershipProject.id, project_id: membershipProject.project_id })
+      .from(membershipProject)
+      .where(eq(membershipProject.membership_id, member.id));
+    const { add, remove } = pickChanges(
+      rows.map((r) => r.project_id),
+      access.ids,
+    );
+    if (Boolean(member.all_projects) !== access.all) {
+      await tx.update(membership).set({ all_projects: access.all }).where(eq(membership.id, member.id));
+    }
+    const gone = rows.filter((r) => remove.includes(r.project_id)).map((r) => r.id);
+    if (gone.length) await tx.delete(membershipProject).where(inArray(membershipProject.id, gone));
+    const now = new Date().toISOString();
+    for (const projectId of add) {
+      await tx.insert(membershipProject).values({
+        id: randomUUID(),
+        business_id: ctx.businessId,
+        membership_id: member.id,
+        user_id: member.user_id,
+        project_id: projectId,
+        created_by: ctx.userId,
+        created_at: now,
+      });
+    }
+  });
 }
 
 // ─── Trades ──────────────────────────────────────────────────────────────────

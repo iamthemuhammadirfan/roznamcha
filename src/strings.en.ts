@@ -57,6 +57,17 @@ export const en: Strings = {
     revoked: 'Access removed. Everything they entered is still saved.',
     restored: 'Munshi added back. They sign in with the new password.',
     restoreHint: 'A removed munshi can be added back with the same email.',
+    access: {
+      title: 'Projects',
+      hint: 'This munshi sees and enters attendance, money and expenses only on these projects.',
+      all: 'All projects',
+      allHint: 'New projects too',
+      none: 'No project given',
+      count: 'projects',
+      noneHint: 'No project picked. This munshi will see no project until you pick one.',
+      noProjects: 'No projects yet. Create one, then pick it here.',
+      munshiEmpty: 'No project has been given to you yet. Ask the owner to pick your projects.',
+    },
     errors: {
       offline: 'No internet. Check the connection and try again.',
       unauthorized: 'Please sign in again.',

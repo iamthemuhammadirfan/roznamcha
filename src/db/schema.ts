@@ -28,6 +28,23 @@ export const membership = sqliteTable('membership', {
   /** Set by the owner (for a munshi) or by the member themselves; see member-details. */
   name: text('name'),
   phone: text('phone'),
+  /** A munshi on every project, new ones too; otherwise only his membership_project rows. Owners ignore it. */
+  all_projects: integer('all_projects', { mode: 'boolean' }),
+});
+
+/**
+ * A project picked for a munshi (Team). The server fills user_id and business_id from
+ * the membership and gives a munshi any project he creates; see migration
+ * project_access_picks. Removing a pick deletes the row: it is access, not a record.
+ */
+export const membershipProject = sqliteTable('membership_project', {
+  id: id(),
+  business_id: text('business_id').notNull(),
+  membership_id: text('membership_id').notNull(),
+  user_id: text('user_id').notNull(),
+  project_id: text('project_id').notNull(),
+  created_by: text('created_by'),
+  created_at: text('created_at'),
 });
 
 export const project = sqliteTable('project', {
@@ -159,6 +176,7 @@ export const rejectedWrite = sqliteTable('rejected_write', {
 export const drizzleSchema = {
   business,
   membership,
+  membership_project: membershipProject,
   project,
   worker,
   trade,
@@ -175,6 +193,7 @@ export const drizzleSchema = {
 export const AppSchema = new DrizzleAppSchema({
   business,
   membership,
+  membership_project: membershipProject,
   project,
   worker,
   trade,
@@ -198,4 +217,4 @@ export type Attendance = typeof attendance.$inferSelect;
 export type LedgerEntry = typeof ledgerEntry.$inferSelect;
 
 /** Columns that are boolean in Postgres but 0/1 in SQLite; the connector converts them on upload. */
-export const BOOLEAN_COLUMNS = new Set(['is_active']);
+export const BOOLEAN_COLUMNS = new Set(['is_active', 'all_projects']);

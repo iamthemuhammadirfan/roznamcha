@@ -3,8 +3,9 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
 
-import { useMembers } from '@/db/hooks';
+import { useMemberProjects, useMembers, useProjects } from '@/db/hooks';
 import { lang, t } from '@/i18n';
+import { accessCount, accessOf } from '@/lib/access';
 import { formatDay, toDay } from '@/lib/dates';
 import { revokeMunshi } from '@/lib/team';
 import { useMember, useSession } from '@/state/session';
@@ -18,12 +19,14 @@ type Member = ReturnType<typeof useMembers>[number];
 
 /**
  * Owner's team: the munshi accounts of this business (the owner is on My account, not
- * here). Each card resets that munshi's password or removes their access; the button at
- * the bottom adds one. All go through the `team` Edge Function, so they need internet.
+ * here). Each card shows which projects the munshi works on (tap to change), and resets
+ * their password or removes their access; the button at the bottom adds one. All go through the `team` Edge Function, so they need internet.
  * Removing access keeps everything the munshi entered.
  */
 export default function TeamScreen() {
   const members = useMembers();
+  const projectIds = useProjects().map((p) => p.id);
+  const picks = useMemberProjects();
   const { role, businessId } = useMember();
   const { localMode } = useSession();
   const [removing, setRemoving] = useState<Member | null>(null);
@@ -70,6 +73,7 @@ export default function TeamScreen() {
         renderItem={({ item: m }) => (
           <MunshiCard
             m={m}
+            projects={accessCount(accessOf(m, picks), projectIds)}
             busy={working === m.user_id}
             onEdit={() => router.push({ pathname: '/member-details', params: { id: m.id } })}
             onReset={() =>
@@ -97,12 +101,15 @@ export default function TeamScreen() {
 
 function MunshiCard({
   m,
+  projects,
   busy,
   onEdit,
   onReset,
   onRevoke,
 }: {
   m: Member;
+  /** How many projects they work on, or 'all'. */
+  projects: number | 'all';
   busy: boolean;
   onEdit: () => void;
   onReset: () => void;
@@ -142,6 +149,7 @@ function MunshiCard({
               </T>
             ) : null}
           </Row>
+          <ProjectsLine projects={projects} />
         </View>
         {busy ? (
           <ActivityIndicator color={colors.brand} />
@@ -154,6 +162,34 @@ function MunshiCard({
         <Tool icon="account-cancel-outline" label={t.team.revoke} danger onPress={onRevoke} disabled={busy} />
       </Row>
     </Card>
+  );
+}
+
+function ProjectsLine({ projects }: { projects: number | 'all' }) {
+  const none = projects === 0;
+  const color = none ? colors.pending : colors.brand;
+  return (
+    <Row style={{ gap: space.xs }}>
+      <MaterialCommunityIcons name={none ? 'alert-circle-outline' : 'office-building-outline'} size={18} color={color} />
+      {projects === 'all' ? (
+        <T variant="small" style={{ color }}>
+          {t.team.access.all}
+        </T>
+      ) : none ? (
+        <T variant="small" style={{ color }}>
+          {t.team.access.none}
+        </T>
+      ) : (
+        <>
+          <Num bold style={{ color, fontSize: 14 }}>
+            {projects}
+          </Num>
+          <T variant="small" style={{ color, flex: 1 }}>
+            {t.team.access.count}
+          </T>
+        </>
+      )}
+    </Row>
   );
 }
 

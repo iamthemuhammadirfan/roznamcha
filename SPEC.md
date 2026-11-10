@@ -117,6 +117,7 @@ Supabase Postgres is the book of record; each phone keeps a full local SQLite co
 
 - **business** — id, name. One row for your friend's company. It costs nothing now and lets the app serve a second contractor later without a rewrite.
 - **membership** — business_id, user_id, role (owner / munshi).
+- **membership_project** — which projects a munshi works on (added Nov 2026). The owner gives each munshi "All projects" (`membership.all_projects`, new projects included) or a list of projects; a munshi who creates a project gets it. Owners always have every project.
 
 **Auth.** Email and password for the owner and the munshi, with accounts you create in the Supabase dashboard and public sign-ups switched off. Skip phone OTP: it needs a paid SMS provider and SMS delivery in Pakistan is unreliable. Workers get no accounts in this phase.
 
@@ -130,7 +131,7 @@ Supabase Postgres is the book of record; each phone keeps a full local SQLite co
 | assignment (rates) | full | select only — munshi can't change a wage |
 | project, worker | full | insert, select |
 
-Every policy checks business_id against the caller's membership. Add a trigger that copies every attendance update into an audit_log table, so a changed haazri is always visible.
+Every policy checks business_id against the caller's membership. Everything tied to a project (project, assignment, attendance, ledger_entry, settlement, project_expense) also checks `private.can_access_project`, and the sync streams send a munshi only those projects, so the other projects never reach his phone. Workers, trades and expense types stay shared across the business. Add a trigger that copies every attendance update into an audit_log table, so a changed haazri is always visible.
 
 One behaviour to design for: an offline write that RLS later rejects (the munshi tried to change a rate while offline). PowerSync's upload will fail on it. Show those as a "not saved" list on the dashboard rather than silently dropping them.
 

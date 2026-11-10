@@ -8,6 +8,10 @@
 // (created_by), so deleting would be refused — and the data must stay. Instead the
 // membership goes and, if they belong nowhere else, their login is banned. Adding the
 // same email again brings them back.
+//
+// A new munshi starts on the projects the owner picked on the same form: "All projects"
+// or a list (membership.all_projects and membership_project). Changing them later is a
+// normal offline edit from the phone; see setMemberProjects in the app.
 import { createClient } from '@supabase/supabase-js';
 
 const url = Deno.env.get('SUPABASE_URL')!;
@@ -19,7 +23,16 @@ const MIN_PASSWORD = 6;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Body =
-  | { action: 'create'; businessId: string; email: string; password: string; name: string; phone?: string }
+  | {
+      action: 'create';
+      businessId: string;
+      email: string;
+      password: string;
+      name: string;
+      phone?: string;
+      allProjects?: boolean;
+      projectIds?: string[];
+    }
   | { action: 'reset'; businessId: string; userId: string; password: string }
   | { action: 'revoke'; businessId: string; userId: string };
 
@@ -48,6 +61,15 @@ function cleanPhone(phone: unknown): string | null | false {
   const p = String(phone ?? '').replace(/[^\d+]/g, '');
   if (!p) return null;
   return p.length >= 7 && p.length <= 20 ? p : false;
+}
+
+type Access = { all: boolean; ids: string[] };
+
+/** "All projects" or a list of project ids; nothing given means no project yet. */
+function cleanAccess(all: unknown, ids: unknown): Access | null {
+  if (all !== undefined && typeof all !== 'boolean') return null;
+  if (ids !== undefined && (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string'))) return null;
+  return { all: all === true, ids: [...new Set((ids as string[] | undefined) ?? [])] };
 }
 
 function reply(status: number, body: Record<string, unknown>) {
@@ -92,9 +114,11 @@ Deno.serve(async (req) => {
     const phone = cleanPhone(body.phone);
     if (phone === false) return fail(400, 'invalid_phone');
     const details = { name, phone };
+    const access = cleanAccess(body.allProjects, body.projectIds);
+    if (!access) return fail(400, 'bad_request');
 
     const { data, error } = await admin.auth.admin.createUser({ email, password: body.password, email_confirm: true });
-    if (error?.code === 'email_exists') return restore(email, body.businessId, body.password, details);
+    if (error?.code === 'email_exists') return restore(email, body.businessId, body.password, details, access);
     if (error || !data.user) {
       if (error?.code === 'email_address_invalid') return fail(400, 'invalid_email');
       if (error?.code === 'weak_password') return fail(400, 'weak_password');
@@ -103,13 +127,10 @@ Deno.serve(async (req) => {
     }
 
     // membership.email is filled in by its insert trigger.
-    const { error: joinError } = await admin
-      .from('membership')
-      .insert({ business_id: body.businessId, user_id: data.user.id, role: 'munshi', ...details });
-    if (joinError) {
+    const joined = await join(body.businessId, data.user.id, details, access);
+    if (!joined) {
       // Don't leave an account that belongs to no business.
       await admin.auth.admin.deleteUser(data.user.id);
-      console.error('membership insert', joinError);
       return fail(500, 'failed');
     }
     return reply(200, { userId: data.user.id });
@@ -154,6 +175,44 @@ Deno.serve(async (req) => {
 
   return fail(400, 'bad_request');
 
+  /**
+   * Make the user a munshi of the business with these projects. A picked project of
+   * another business is refused by membership_project's trigger; then the membership
+   * goes too, so a munshi is never left half-made.
+   */
+  async function join(
+    businessId: string,
+    userId: string,
+    details: { name: string; phone: string | null },
+    access: Access,
+  ) {
+    const { data: member, error } = await admin
+      .from('membership')
+      .insert({ business_id: businessId, user_id: userId, role: 'munshi', all_projects: access.all, ...details })
+      .select('id')
+      .single();
+    if (error || !member) {
+      console.error('membership insert', error);
+      return false;
+    }
+    if (access.ids.length === 0) return true;
+    const { error: pickError } = await admin.from('membership_project').insert(
+      access.ids.map((projectId) => ({
+        business_id: businessId,
+        membership_id: member.id,
+        user_id: userId,
+        project_id: projectId,
+        created_by: user!.id,
+      })),
+    );
+    if (pickError) {
+      console.error('membership_project insert', pickError);
+      await admin.from('membership').delete().eq('id', member.id);
+      return false;
+    }
+    return true;
+  }
+
   /** A munshi of this business who owns no business anywhere (owners are never managed here). */
   async function isMunshiOf(businessId: string, userId: string) {
     const { data: target } = await admin
@@ -180,6 +239,7 @@ Deno.serve(async (req) => {
     businessId: string,
     password: string,
     details: { name: string; phone: string | null },
+    access: Access,
   ) {
     // No lookup-by-email in the admin API; a business has a handful of accounts.
     const { data: list, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -197,13 +257,7 @@ Deno.serve(async (req) => {
       console.error('restore update', updateError);
       return fail(500, 'failed');
     }
-    const { error: joinError } = await admin
-      .from('membership')
-      .insert({ business_id: businessId, user_id: found.id, role: 'munshi', ...details });
-    if (joinError) {
-      console.error('restore membership', joinError);
-      return fail(500, 'failed');
-    }
+    if (!(await join(businessId, found.id, details, access))) return fail(500, 'failed');
     return reply(200, { userId: found.id, restored: true });
   }
 });

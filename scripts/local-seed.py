@@ -49,7 +49,11 @@ def q(s):
 def insert(table, data):
     data = sorted(data, key=lambda r: r.get('reverses_id') is not None)
     payload = q(json.dumps(data, ensure_ascii=False))
-    return f'\ninsert into {table} select * from jsonb_populate_recordset(null::{table}, {payload}::jsonb) on conflict do nothing;\n'
+    # Name the columns the live rows have, so a column added by a newer local migration
+    # takes its default instead of the null jsonb_populate_recordset would give it.
+    cols = ', '.join(sorted({k for r in data for k in r}))
+    return (f'\ninsert into {table} ({cols}) select {cols} from '
+            f'jsonb_populate_recordset(null::{table}, {payload}::jsonb) on conflict do nothing;\n')
 
 
 logins = '\n'.join(

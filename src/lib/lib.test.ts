@@ -1,6 +1,7 @@
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
 
+import { accessCount, accessOf, canSee, pickChanges, togglePick } from './access';
 import { flagsFor, hasFlags, localDayOf, parseTimestamp } from './attribution';
 import { activeOn, clashingMarks, coverage, monthWeeks, nextStatus, summarize } from './attendance';
 import { attendanceEarning, computeBalance, reversedIds, splitBalances } from './balance';
@@ -307,5 +308,47 @@ describe('repayment (واپسی)', () => {
     expect(
       projectSpend([], [e('a', 'advance', 5000000), e('r', 'repayment', 4000000), e('c', 'correction', 4000000, 'r')], all).labour,
     ).toBe(5000000);
+  });
+});
+
+describe('munshi project access', () => {
+  const picks = [
+    { membership_id: 'm1', project_id: 'p489' },
+    { membership_id: 'm2', project_id: 'p544' },
+  ];
+
+  test('owners see every project, whatever is stored', () => {
+    const a = accessOf({ id: 'o', role: 'owner', all_projects: false }, picks);
+    expect(a.all).toBe(true);
+    expect(canSee(a, 'anything')).toBe(true);
+  });
+
+  test('a munshi sees only his own picks', () => {
+    const a = accessOf({ id: 'm1', role: 'munshi', all_projects: false }, picks);
+    expect(a).toEqual({ all: false, ids: ['p489'] });
+    expect(canSee(a, 'p489')).toBe(true);
+    expect(canSee(a, 'p544')).toBe(false);
+  });
+
+  test('all projects covers new ones; null (older rows) means off', () => {
+    expect(canSee(accessOf({ id: 'm1', role: 'munshi', all_projects: true }, picks), 'new')).toBe(true);
+    expect(accessOf({ id: 'm3', role: 'munshi', all_projects: null }, picks)).toEqual({ all: false, ids: [] });
+  });
+
+  test('only the difference is written', () => {
+    expect(pickChanges(['a', 'b'], ['b', 'c'])).toEqual({ add: ['c'], remove: ['a'] });
+    expect(pickChanges(['a'], ['a'])).toEqual({ add: [], remove: [] });
+    expect(pickChanges([], ['a', 'a'])).toEqual({ add: ['a'], remove: [] });
+  });
+
+  test('toggle adds then removes', () => {
+    expect(togglePick(['a'], 'b')).toEqual(['a', 'b']);
+    expect(togglePick(['a', 'b'], 'a')).toEqual(['b']);
+  });
+
+  test('the count ignores picks of projects that no longer exist', () => {
+    expect(accessCount({ all: false, ids: ['a', 'gone'] }, ['a', 'b'])).toBe(1);
+    expect(accessCount({ all: false, ids: [] }, ['a'])).toBe(0);
+    expect(accessCount({ all: true, ids: [] }, ['a'])).toBe('all');
   });
 });
