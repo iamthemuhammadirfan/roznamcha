@@ -1,11 +1,12 @@
 -- Which projects a munshi works on, phase 2 of 2: enforce it. A munshi reads and writes
 -- only the projects he has access to: all of them with membership.all_projects on,
 -- otherwise the ones in membership_project. Owners keep everything. Shared lists
--- (workers, trades, expense types) stay visible to the whole business.
+-- (workers, trades, expense types) stay visible to the whole business. Only the owner
+-- creates projects from now on.
 --
--- Apply this together with the matching sync config (powersync/sync-config.yaml), after
--- the owner has picked each munshi's projects: a munshi with none picked sees no project
--- from then on, and anything he saves on a hidden project is refused ("not saved").
+-- Apply this together with the matching sync config (powersync/sync-config.yaml). A
+-- munshi with no projects picked sees no project from then on, until the owner picks
+-- them on Team; anything he saves on a hidden project is refused ("not saved").
 --
 -- Every policy below keeps its old condition and adds the project check. Attendance,
 -- ledger entries and settlements carry assignment_id, not project_id, so they go
@@ -31,11 +32,14 @@ language sql stable security definer set search_path = public as $$
   select private.can_access_project((select project_id from assignment where id = aid));
 $$;
 
--- project: owner full (unchanged); a munshi sees his projects and may still create one
--- (project_grant_creator gives it to him).
+-- project: owner full; a munshi sees his projects and no longer creates them. A role in
+-- between may be allowed to later; project_grant_creator would then give it to them.
 drop policy project_select on project;
 create policy project_select on project for select
   using (private.is_member(business_id) and private.can_access_project(id));
+drop policy project_insert on project;
+create policy project_insert on project for insert
+  with check (private.is_owner(business_id) and created_by = auth.uid());
 
 drop policy assignment_select on assignment;
 create policy assignment_select on assignment for select

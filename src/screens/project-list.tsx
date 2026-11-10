@@ -55,9 +55,10 @@ export function ProjectList() {
   const { localMode } = useSession();
   const { role, userId } = useMember();
   const me = useMembers().find((m) => m.user_id === userId);
-  // A munshi only gets the projects the owner picked for him; with none yet, say so
-  // instead of inviting him to create one.
-  const waitingForProjects = role === 'munshi' && me != null && !me.all_projects;
+  // Only the owner creates projects. A munshi gets the ones the owner picked for him, so
+  // with none he is told to ask the owner rather than invited to create one.
+  const isOwner = role === 'owner';
+  const waitingForProjects = !isOwner && me != null && !me.all_projects;
   const { projectId, setProjectId } = useActiveProject();
   const { projects, loading } = useProjectsLoaded();
   const assignments = useAllAssignments();
@@ -175,7 +176,9 @@ export function ProjectList() {
                   ? t.project.noMatch
                   : waitingForProjects
                     ? t.team.access.munshiEmpty
-                    : t.project.empty
+                    : isOwner
+                      ? t.project.empty
+                      : t.project.emptyMunshi
               }
             />
           )
@@ -190,7 +193,7 @@ export function ProjectList() {
         )}
       />
 
-      <Fab icon="plus" label={t.project.new} onPress={() => router.push('/project-form')} />
+      {isOwner ? <Fab icon="plus" label={t.project.new} onPress={() => router.push('/project-form')} /> : null}
     </SafeAreaView>
   );
 }
