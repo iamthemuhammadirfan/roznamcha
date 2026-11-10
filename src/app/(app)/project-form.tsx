@@ -30,8 +30,9 @@ function ProjectForm({ existing }: { existing: Project | null }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Munshi can add projects but only the owner edits them (RLS enforces this too).
-  const readOnly = Boolean(id) && role !== 'owner';
+  // Only the owner adds or edits projects (RLS enforces this too); a munshi sees an
+  // existing project's details read-only.
+  const readOnly = role !== 'owner';
 
   async function save() {
     if (!code.trim() || !name.trim()) return setError(t.project.codeRequired);
@@ -62,6 +63,14 @@ function ProjectForm({ existing }: { existing: Project | null }) {
         },
       },
     ]);
+  }
+
+  if (!existing && readOnly) {
+    return (
+      <Screen>
+        <Banner text={t.team.errors.not_owner} />
+      </Screen>
+    );
   }
 
   return (

@@ -104,6 +104,7 @@ export const en: Strings = {
     hideArchived: 'Hide closed projects',
     workerCount: 'workers',
     empty: 'No projects yet. Create one below.',
+    emptyMunshi: 'No projects yet. The owner creates new projects.',
     pick: 'Choose a project',
     codeRequired: 'Project number and name are required',
     codeTaken: 'This project number already exists',
