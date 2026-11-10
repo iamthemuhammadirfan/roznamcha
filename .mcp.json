@@ -20,6 +20,13 @@
     "supabase-local": {
       "type": "http",
       "url": "http://127.0.0.1:55321/mcp?features=docs%2Cdatabase%2Cdebugging%2Cdevelopment"
+    },
+    "agent-device": {
+      "type": "stdio",
+      "command": "agent-device",
+      "args": [
+        "mcp"
+      ]
     }
   }
 }
