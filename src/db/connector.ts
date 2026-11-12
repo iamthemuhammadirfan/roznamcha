@@ -39,6 +39,10 @@ async function uploadOne(op: CrudEntry) {
       return table.upsert(row, { onConflict: 'id', ignoreDuplicates: true });
     }
     case UpdateType.PATCH: {
+      // An update that set every column to the value it already had arrives with no
+      // columns. There is nothing to send, and the empty reply below would read as a
+      // rejection, so it is done.
+      if (Object.keys(data).length === 0) return { error: null };
       // RLS filters an update it doesn't allow down to zero rows instead of raising, so
       // ask for the row back and treat "nothing updated" as a rejection.
       const result = await table.update(data).eq('id', op.id).select('id');
