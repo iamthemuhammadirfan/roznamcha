@@ -46,7 +46,8 @@ export default function MemberDetails() {
     if (!n) return setError('invalid_name');
     const p = cleanPhone(phoneDraft);
     if (p === false) return setError('invalid_phone');
-    await updateMemberDetails(row!.id, n, p);
+    // Only when changed: Save is also how the owner assigns projects.
+    if (n !== row!.name || p !== row!.phone) await updateMemberDetails(row!.id, n, p);
     if (ownerOfMunshi && access) await setMemberProjects(ctx, row!, access);
     router.back();
   }
